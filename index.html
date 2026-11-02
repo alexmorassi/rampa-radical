@@ -2359,7 +2359,7 @@ class Car {
       const od = other.userData && other.userData.dyn;
       if (od) od.hit = true;
       const lam = c.lam || 0;
-      if (other === OB.wallBody && lam > wallLam) { wallLam = lam; wallC = c; }
+      if (other.userData && other.userData.wall && lam > wallLam) { wallLam = lam; wallC = c; }
       if (!(lam > 0) || !Number.isFinite(lam) || !Number.isFinite(c.ni.x + c.ni.y + c.ni.z)) continue;
       J += lam;
       list.push(c);
@@ -2423,6 +2423,29 @@ class Car {
       _w3.set(b.position.x + rr0.x, b.position.y + rr0.y, b.position.z + rr0.z);
       this.onImpact(crush, _w3, best.bi === b ? best.bj : best.bi, dv);
     }
+  }
+
+  // batida "de mentira" no muro que quebrou antes do contato: amassa a frente como uma pancada de verdade
+  hitWall(wp, crush, other) {
+    if (!(crush > 0.01)) return;
+    const b = this.body, s = this.spec, q = b.quaternion;
+    _wqi.set(q.x, q.y, q.z, q.w).invert();
+    _w2.set(0, 0, -1).applyQuaternion(_wqi);
+    _w1.set(wp.x - b.position.x, wp.y - b.position.y, wp.z - b.position.z).applyQuaternion(_wqi).add(this.com);
+    const cx = _w1.x, cy = _w1.y, cz = _w1.z, rad = 0.34 + 0.45 * Math.min(1, crush / 0.5);
+    for (let i = 0; i < 3; i++) {
+      const px = cx + (i - 1) * 0.65 * s.W * 0.5, sh = i === 1 ? 0.4 : 0.3;
+      this.lat.impact(px, cy, cz, _w2.x, _w2.y, _w2.z, crush * sh, rad);
+      for (const w of this.wheels) {
+        if (!w.attached) continue;
+        const d = Math.hypot(px - w.x, cy - s.wheel.r, cz - w.z);
+        if (d < 1.0) w.dmg += crush * sh * (1 - d) * 2.4;
+      }
+    }
+    _wImp.set(cx, cy, cz);
+    this.wreckImpact(crush, _wImp, other);
+    if (this.airTime > 0.1 && crush > 0.02) this.airStab = 0;
+    if (this.trick && this.trick.state === 'on' && crush > 0.16) this.trick.hard = true;
   }
 
   /* ---------- atualização visual (por quadro) ---------- */
@@ -3492,7 +3515,7 @@ function initObstacleAssets() {
 }
 
 function resetObstacles() {
-  OB.wallBody = null;
+  OB.wallBody = null; bwallReset();
   OB.balloons.length = 0; OB.wrecks.length = 0; OB.sensors.length = 0; OB.breakQueue.length = 0; OB.explosives.length = 0; OB.heavy.length = 0;
   OB.groupSeq = 1;
 }
@@ -3734,12 +3757,544 @@ function glassPane(parent, x, y, z, w, h) {
   const frame = mkMesh(new THREE.BoxGeometry(w + 0.3, 0.15, 0.15), OB.mat.steel, parent); frame.position.set(x, y + h / 2, z);
   OB.sensors.push({ kind: 'glass', mesh: m, min: new THREE.Vector3(x - w / 2, y - h / 2, z - 0.4), max: new THREE.Vector3(x + w / 2, y + h / 2, z + 0.4), done: false, w, h });
 }
+/* ============================================================
+   Muro do alvo quebrável: blocos de concreto em fiada travada.
+   A força da batida (energia do carro na direção do muro) decide:
+   racha, solta um bloco, abre um buraco (o carro passa) ou desmorona.
+   ============================================================ */
+const BWALL = { on: false, z: 0, w: 60, h: 14, d: 1.2, bw: 2.5, bh: 1.4, nr: 10, cells: [], rows: [], dyn: [], queue: [], cool: 0, mesh: null, iuv: null, cuv: null, mats: null, pts: 0, passed: false,
+  ghosts: [], max: LOW_END ? 18 : 30 }; // blocos soltos com física (os outros caem sem física)
+const BW_E = { crack: 18, punch: 70, hole: 160, fall: 500 }; // energia da batida (kJ) para cada estrago
+const _bwC = Array.from({ length: 16 }, () => new THREE.Vector3());
+const _bwP = new THREE.Vector3(), _bwS = new THREE.Vector3(), _bwV = new THREE.Vector3(), _bwW = new THREE.Vector3(), _bwE = new THREE.Euler();
+
+// texturas: atlas da frente (painel do alvo + blocos), lateral do bloco e rachaduras
+function bwallMats() {
+  if (BWALL.mats) return BWALL.mats;
+  const rnd = mulberry32(4242);
+  const c = makeCanvas(2048, 1024);
+  let g = c.getContext('2d');
+  // um bloco de concreto (retângulo em px; k = variação de tom)
+  const block = (X, Y, w, h, k) => {
+    const L = 166 + Math.round(k * 18);
+    g.fillStyle = `rgb(${L + 10},${L + 4},${L - 8})`; g.fillRect(X, Y, w, h);
+    const gr = g.createLinearGradient(0, Y, 0, Y + h);
+    gr.addColorStop(0, 'rgba(255,255,248,0.10)'); gr.addColorStop(0.55, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(70,52,34,0.2)');
+    g.fillStyle = gr; g.fillRect(X, Y, w, h);
+    const n = Math.round(w * h / 700);
+    for (let i = 0; i < n; i++) { g.fillStyle = `rgba(40,37,33,${0.08 + rnd() * 0.22})`; g.beginPath(); g.arc(X + rnd() * w, Y + rnd() * h, 0.6 + rnd() * 2.4, 0, TAU); g.fill(); }
+    for (let i = 0; i < 3; i++) { g.fillStyle = `rgba(92,80,62,${0.04 + rnd() * 0.07})`; g.beginPath(); g.ellipse(X + rnd() * w, Y + rnd() * h, 8 + rnd() * w * 0.22, 5 + rnd() * h * 0.22, rnd() * 3, 0, TAU); g.fill(); }
+  };
+  // rejunte: borda escura + quina clara
+  const joint = (X, Y, w, h, lw) => {
+    g.strokeStyle = 'rgba(58,54,48,0.96)'; g.lineWidth = lw; g.strokeRect(X + lw / 2, Y + lw / 2, w - lw, h - lw);
+    g.strokeStyle = 'rgba(255,255,244,0.24)'; g.lineWidth = lw * 0.45;
+    g.beginPath(); g.moveTo(X + lw * 1.2, Y + h - lw * 1.4); g.lineTo(X + lw * 1.2, Y + lw * 1.2); g.lineTo(X + w - lw * 1.4, Y + lw * 1.2); g.stroke();
+  };
+  // listras de perigo na diagonal, contínuas de um bloco para o outro (fase pelo mundo: período 1,25 m)
+  // px(x) e py(y) levam o mundo para o canvas; x0..x1 e y0..y1 = faixa no mundo
+  const stripes = (px, py, x0, x1, y0, y1) => {
+    const P = 1.25;
+    g.save();
+    g.beginPath(); g.rect(Math.min(px(x0), px(x1)), py(y1), Math.abs(px(x1) - px(x0)), py(y0) - py(y1)); g.clip();
+    g.fillStyle = '#ffc21a'; g.fillRect(Math.min(px(x0), px(x1)), py(y1), Math.abs(px(x1) - px(x0)), py(y0) - py(y1));
+    g.fillStyle = '#16181d';
+    for (let k = Math.floor((x0 + y0) / P) - 1; k <= Math.ceil((x1 + y1) / P) + 1; k++) {
+      g.beginPath();
+      g.moveTo(px(k * P - y0), py(y0)); g.lineTo(px((k + 0.5) * P - y0), py(y0));
+      g.lineTo(px((k + 0.5) * P - y1), py(y1)); g.lineTo(px(k * P - y1), py(y1)); g.closePath(); g.fill();
+    }
+    g.restore();
+  };
+  // ---- painel do alvo (metade esquerda): x de -5 a 5 m, y de 0 a 8,4 m (no canvas, +x fica à esquerda)
+  const sx = 1024 / 10, sy = 1024 / 8.4;
+  const ppx = (x) => (5 - x) * sx, ppy = (y) => (8.4 - y) * sy;
+  const panelCells = [];
+  for (let r = 0; r < 6; r++) {
+    const odd = r % 2 === 1, xs = odd ? [-3.75, -1.25, 1.25, 3.75] : [-5, -2.5, 0, 2.5, 5];
+    if (odd) { panelCells.push([-5, -3.75, r]); panelCells.push([3.75, 5, r]); }
+    for (let i = 0; i < xs.length - 1; i++) panelCells.push([xs[i], xs[i + 1], r]);
+  }
+  for (const [x0, x1, r] of panelCells) block(ppx(x1), ppy((r + 1) * 1.4), (x1 - x0) * sx, 1.4 * sy, rnd());
+  stripes(ppx, ppy, -5, 5, 0, 0.8);
+  // alvo pintado (anéis, pontos e miolo), um pouco gasto
+  const R = TARGET.rings, cxp = ppx(0), cyp = ppy(TARGET.cy);
+  g.save(); g.globalAlpha = 0.95;
+  for (let i = R.length - 1; i >= 0; i--) {
+    g.fillStyle = i % 2 ? '#f4f1e8' : '#d8372c';
+    g.beginPath(); g.ellipse(cxp, cyp, R[i] * sx, R[i] * sy, 0, 0, TAU); g.fill();
+    g.lineWidth = 0.055 * sx; g.strokeStyle = '#14171c'; g.stroke();
+  }
+  g.restore();
+  // as pedras do alvo continuam aparecendo (rejunte por cima da tinta)
+  for (const [x0, x1, r] of panelCells) joint(ppx(x1), ppy((r + 1) * 1.4), (x1 - x0) * sx, 1.4 * sy, 3.5);
+  g.save(); g.translate(cxp, cyp); g.scale(1, sy / sx);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let i = 1; i < R.length; i++) {
+    const r = (R[i] + R[i - 1]) / 2 * sx, txt = String(TARGET.pts[i]);
+    g.font = `${Math.round((40 - i * 2) / 73 * sx)}px ${FONT_DISPLAY}`;
+    g.fillStyle = i % 2 ? '#d8372c' : '#fff8e7';
+    for (const s2 of [-1, 1]) g.fillText(txt, 0, s2 * r);
+  }
+  g.font = `${Math.round(0.58 * sx)}px ${FONT_DISPLAY}`; g.lineWidth = 0.1 * sx; g.strokeStyle = '#7a1a14'; g.strokeText('5000', 0, 2);
+  g.fillStyle = '#fff8e7'; g.fillText('5000', 0, 2);
+  g.restore();
+  // ---- blocos soltos (metade direita): 4 lisos, base com listras, topo com listras e meios-blocos
+  const SL = {
+    p0: [1024, 0, 512, 256], p1: [1536, 0, 512, 256], p2: [1024, 256, 512, 256], p3: [1536, 256, 512, 256],
+    bot: [1024, 512, 512, 256], top: [1536, 512, 512, 256],
+    h0: [1024, 768, 256, 256], h1: [1280, 768, 256, 256], hTop: [1536, 768, 256, 256], h2: [1792, 768, 256, 256],
+  };
+  for (const k in SL) {
+    const [X, Y, w, h] = SL[k], bs = w / (k[0] === 'h' ? 1.25 : 2.5), bsy = h / 1.4;
+    block(X, Y, w, h, rnd());
+    // listras pela fase do mundo (as bordas dos blocos caem em múltiplos de 1,25 m)
+    const px = (x) => X - x * bs;
+    if (k === 'bot') stripes(px, (y) => Y + h - y * bsy, -w / bs, 0, 0, 0.8);
+    if (k === 'top' || k === 'hTop') stripes(px, (y) => Y + h - (y - 12.6) * bsy, -w / bs, 0, 13.2, 14);
+    joint(X, Y, w, h, 7);
+  }
+  noiseFill(g, 2048, 1024, 0, 16, 4243, 1);
+  const tex = canvasTex(c, { clamp: true }); tex.userData.shared = true;
+  // lateral, topo e costas do bloco
+  const c2 = makeCanvas(256, 128), g2 = c2.getContext('2d');
+  { const gg = g; g = g2; block(0, 0, 256, 128, 0.4); joint(0, 0, 256, 128, 3.5); g = gg; }
+  noiseFill(g2, 256, 128, 0, 18, 4244, 1);
+  const tex2 = canvasTex(c2); tex2.userData.shared = true;
+  // rachaduras: 4 variações (branco = inteiro; escuro = trinca)
+  const c3 = makeCanvas(512, 512), g3 = c3.getContext('2d');
+  g3.fillStyle = '#fff'; g3.fillRect(0, 0, 512, 512);
+  g3.lineCap = 'round'; g3.lineJoin = 'round';
+  for (let v = 0; v < 4; v++) {
+    const X = (v % 2) * 256, Y = Math.floor(v / 2) * 256;
+    g3.save(); g3.beginPath(); g3.rect(X + 2, Y + 2, 252, 252); g3.clip();
+    const ox = X + 128 + (rnd() - 0.5) * 90, oy = Y + 128 + (rnd() - 0.5) * 70;
+    // lascas em volta do ponto da pancada
+    for (let i = 0; i < 7; i++) { g3.fillStyle = `rgba(70,64,58,${0.12 + rnd() * 0.14})`; g3.beginPath(); const a = rnd() * TAU, r0 = 6 + rnd() * 22; g3.moveTo(ox, oy); g3.lineTo(ox + Math.cos(a) * r0, oy + Math.sin(a) * r0); g3.lineTo(ox + Math.cos(a + 0.6) * r0 * 0.7, oy + Math.sin(a + 0.6) * r0 * 0.7); g3.fill(); }
+    const branch = (x, y, a, len, w, depth) => {
+      let px = x, py = y;
+      const n = Math.max(2, Math.round(len / 11));
+      for (let i = 0; i < n; i++) {
+        a += (rnd() - 0.5) * 0.9;
+        const nx = px + Math.cos(a) * 11, ny = py + Math.sin(a) * 11, lw = Math.max(0.7, w * (1 - i / n));
+        g3.strokeStyle = 'rgba(255,255,255,0.5)'; g3.lineWidth = lw * 0.8; g3.beginPath(); g3.moveTo(px + 1, py + 1); g3.lineTo(nx + 1, ny + 1); g3.stroke();
+        g3.strokeStyle = 'rgba(34,30,27,0.95)'; g3.lineWidth = lw; g3.beginPath(); g3.moveTo(px, py); g3.lineTo(nx, ny); g3.stroke();
+        if (depth < 2 && rnd() < 0.22) branch(nx, ny, a + (rnd() < 0.5 ? -1 : 1) * (0.5 + rnd() * 0.7), len * 0.45, lw * 0.75, depth + 1);
+        px = nx; py = ny;
+      }
+    };
+    const nb = 5 + Math.floor(rnd() * 3);
+    for (let i = 0; i < nb; i++) branch(ox, oy, i / nb * TAU + rnd() * 0.6, 70 + rnd() * 110, 3.4, 0);
+    g3.restore();
+  }
+  const tex3 = canvasTex(c3, { linear: true, clamp: true }); tex3.userData.shared = true;
+  // frente: cada bloco lê o seu pedaço do atlas (atributo por instância) e as trincas por cima
+  const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92 });
+  front.onBeforeCompile = (sh) => {
+    sh.uniforms.crackMap = { value: tex3 };
+    sh.vertexShader = 'attribute vec4 iuv;\nattribute vec3 cuv;\nvarying vec3 vCk;\n' + sh.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n  vUv = iuv.xy + uv * iuv.zw;\n  vCk = vec3(cuv.xy + uv * 0.5, cuv.z);');
+    sh.fragmentShader = 'uniform sampler2D crackMap;\nvarying vec3 vCk;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= mix(1.0, texture2D(crackMap, vCk.xy).r, vCk.z);');
+  };
+  front.customProgramCacheKey = () => 'bwall-front';
+  const side = new THREE.MeshStandardMaterial({ map: tex2, roughness: 0.95 });
+  front.userData.shared = side.userData.shared = true;
+  BWALL.mats = { front, side, SL, sx, sy };
+  return BWALL.mats;
+}
+
+// caixa 1x1x1 com a frente (-z) num grupo e o resto no outro (2 desenhos para o muro inteiro)
+function bwallGeo(n) {
+  const b = new THREE.BoxGeometry(1, 1, 1), idx = b.index.array, fr = [], rest = [];
+  for (const gr of b.groups) { const dst = gr.materialIndex === 5 ? fr : rest; for (let i = gr.start; i < gr.start + gr.count; i++) dst.push(idx[i]); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', b.attributes.position); geo.setAttribute('normal', b.attributes.normal); geo.setAttribute('uv', b.attributes.uv);
+  geo.setIndex(fr.concat(rest));
+  geo.addGroup(0, fr.length, 0); geo.addGroup(fr.length, rest.length, 1);
+  geo.setAttribute('iuv', new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4));
+  geo.setAttribute('cuv', new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3));
+  b.dispose();
+  return geo;
+}
+
+function bwallReset() {
+  const W = BWALL;
+  if (W.mesh) W.mesh.dispose();
+  W.on = false; W.cells = []; W.rows = []; W.dyn = []; W.queue = []; W.ghosts = []; W.mesh = null; W.cool = 0; W.pts = 0; W.passed = false; W.last = null;
+}
+
+// muro final: blocos de 2,5 x 1,4 m (as fiadas ímpares começam com meio bloco)
 function finalWall(parent, z, w = 34, h = 12) {
-  OB.wallBody = addStaticBox(0, h / 2, z + 1, w / 2, h / 2, 1, null, 'solid').body;
-  const m = mkMesh(OB.geo.box, OB.mat.concrete, parent); m.scale.set(w, h, 2); m.position.set(0, h / 2, z + 1);
-  const t = mkMesh(new THREE.PlaneGeometry(TARGET.size, TARGET.size), OB.mat.target, parent, false); t.position.set(0, TARGET.cy, z - 0.02); t.rotation.y = Math.PI;
-  const s1 = mkMesh(new THREE.PlaneGeometry(w, 0.8), OB.mat.hazard, parent, false); s1.position.set(0, h - 0.4, z - 0.02); s1.rotation.y = Math.PI;
-  const s2 = mkMesh(new THREE.PlaneGeometry(w, 0.8), OB.mat.hazard, parent, false); s2.position.set(0, 0.4, z - 0.02); s2.rotation.y = Math.PI;
+  const W = BWALL, M = bwallMats(), SL = M.SL;
+  bwallReset();
+  OB.wallBody = null;
+  W.on = true; W.z = z; W.w = w; W.nr = Math.round(h / W.bh); W.h = W.nr * W.bh;
+  const rnd = mulberry32(777 + Math.round(z));
+  for (let r = 0; r < W.nr; r++) {
+    const y0 = r * W.bh, odd = r % 2 === 1, xs = [];
+    if (!odd) for (let x = -w / 2; x < w / 2 - 1e-6; x += W.bw) xs.push([x, Math.min(w / 2, x + W.bw)]);
+    else {
+      xs.push([-w / 2, -w / 2 + W.bw / 2]);
+      for (let x = -w / 2 + W.bw / 2; x < w / 2 - W.bw / 2 - 1e-6; x += W.bw) xs.push([x, x + W.bw]);
+      xs.push([w / 2 - W.bw / 2, w / 2]);
+    }
+    const row = { r, y0, cells: [], st: [] };
+    for (const [x0, x1] of xs) {
+      const c = { r, x0, x1, y0, y1: y0 + W.bh, w: x1 - x0, cx: (x0 + x1) / 2, cy: y0 + W.bh / 2, st: 0, ck: 0, fall: false, o: null, i: W.cells.length, sup: [] };
+      row.cells.push(c); W.cells.push(c);
+    }
+    W.rows.push(row);
+  }
+  // apoios: blocos da fiada de baixo que encostam neste
+  for (let r = 1; r < W.nr; r++) for (const c of W.rows[r].cells) for (const s of W.rows[r - 1].cells) if (s.x1 > c.x0 + 0.05 && s.x0 < c.x1 - 0.05) c.sup.push(s);
+  const n = W.cells.length, geo = bwallGeo(n);
+  const mesh = new THREE.InstancedMesh(geo, [M.front, M.side], n);
+  mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
+  W.iuv = geo.attributes.iuv; W.cuv = geo.attributes.cuv; W.mesh = mesh;
+  const plain = ['p0', 'p1', 'p2', 'p3'], half = ['h0', 'h1', 'h2'];
+  for (const c of W.cells) {
+    // painel do alvo ou bloco solto do atlas (u = 0 no lado +x: é a esquerda de quem olha o muro)
+    if (c.x0 > -5 - 1e-6 && c.x1 < 5 + 1e-6 && c.y1 < 8.4 + 1e-6) {
+      W.iuv.setXYZW(c.i, (5 - c.x1) * M.sx / 2048, 1 - (8.4 - c.y0) * M.sy / 1024, c.w * M.sx / 2048, W.bh * M.sy / 1024);
+    } else {
+      const top = c.r === W.nr - 1, hf = c.w < W.bw - 0.01;
+      const k = hf ? (top ? 'hTop' : half[Math.floor(rnd() * 3)]) : c.r === 0 ? 'bot' : top ? 'top' : plain[Math.floor(rnd() * 4)];
+      const [X, Y, sw, shh] = SL[k];
+      W.iuv.setXYZW(c.i, X / 2048, 1 - (Y + shh) / 1024, sw / 2048, shh / 1024);
+    }
+    W.cuv.setXYZ(c.i, (c.i % 2) * 0.5, (Math.floor(c.i / 2) % 2) * 0.5, 0);
+    const t = 0.93 + rnd() * 0.1;
+    mesh.setColorAt(c.i, _c1.setRGB(t, t * 0.995, t * 0.985));
+    _m1.compose(_bwP.set(c.cx, c.cy, z + W.d / 2), _q1.set(0, 0, 0, 1), _bwS.set(c.w, W.bh, W.d));
+    mesh.setMatrixAt(c.i, _m1);
+  }
+  mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true;
+  parent.add(mesh);
+  for (let r = 0; r < W.nr; r++) bwallRow(r);
+}
+
+// colisão: um corpo estático por trecho inteiro de cada fiada
+function bwallRow(r) {
+  const W = BWALL, R = W.rows[r];
+  for (const s of R.st) { PHY.world.removeBody(s.body); const i = PHY.statics.indexOf(s); if (i >= 0) PHY.statics.splice(i, 1); }
+  R.st.length = 0;
+  let a = null, b = 0;
+  const flush = () => {
+    const s = addStaticBox((a + b) / 2, R.y0 + W.bh / 2, W.z + W.d / 2, (b - a) / 2, W.bh / 2, W.d / 2, null, 'solid');
+    s.body.userData.wall = true; R.st.push(s); a = null;
+  };
+  for (const c of R.cells) {
+    if (c.st < 2) { if (a === null) a = c.x0; b = c.x1; }
+    else if (a !== null) flush();
+  }
+  if (a !== null) flush();
+}
+
+// trincas nos blocos inteiros dentro do retângulo (k = força da trinca)
+function bwallCrack(x0, x1, y0, y1, k) {
+  const W = BWALL;
+  let ch = false;
+  for (const c of W.cells) {
+    if (c.st >= 2 || c.x1 <= x0 || c.x0 >= x1 || c.y1 <= y0 || c.y0 >= y1) continue;
+    const nk = Math.min(1, Math.max(c.ck, k));
+    if (nk > c.ck + 0.01) { c.ck = nk; c.st = 1; W.cuv.setZ(c.i, nk); ch = true; }
+  }
+  if (ch) W.cuv.needsUpdate = true;
+}
+
+// poeira de concreto e pedaços
+function bwallDust(x, y, z, n, k) {
+  for (let i = 0; i < n; i++) {
+    FX.smokeS.spawn(x + rr(-1.1, 1.1), y + rr(-0.6, 0.6), z + rr(-0.4, 0.8), rr(-2.2, 2.2) * k, rr(0.2, 1.8), rr(-2.4, 2.8) * k,
+      rr(1.8, 3.4), rr(0.9, 1.5), rr(3.2, 5.2) * k, 0.75, 0.72, 0.67, 0.6, -0.12, 1.1);
+  }
+}
+function bwallChunks(x, y, z, n, vx, vy, vz) {
+  const cA = BWALL.cA || (BWALL.cA = new THREE.Color(0.68, 0.66, 0.61)), cB = BWALL.cB || (BWALL.cB = new THREE.Color(0.46, 0.44, 0.41));
+  for (let i = 0; i < n; i++) {
+    _v4.set(vx + rr(-4, 4), vy + rr(1, 5.5), vz + rr(-3, 4));
+    FX.chunks.spawn(_v3.set(x + rr(-1, 1), y + rr(-0.5, 0.5), z + rr(-0.2, 0.4)), _v4, rr(1.2, 2.8), rr(6, 9), i % 3 ? cA : cB);
+  }
+}
+
+// um bloco sai do muro: vira corpo com física (ou cai sem física, se já tiver blocos demais soltos)
+// modo: 'hit' = empurrado pelo carro, 'blast' = arrancado pela pancada, 'fall' = caiu sem apoio, 'topple' = tombou junto
+function bwallDrop(c, mode, V, P) {
+  const W = BWALL, lv = _bwV, av = _bwW;
+  c.st = 2; c.fall = false;
+  if (mode === 'hit') {
+    lv.set(V.x * rr(0.8, 1.1) + rr(-1.2, 1.2) + (c.cx - P.x) * 0.4, V.y * rr(0.85, 1.1) + rr(0.3, 2.2) + (c.cy - P.y) * 0.3, V.z * rr(1.0, 1.3));
+    av.set(rr(-3.5, 3.5), rr(-2.5, 2.5), rr(-3, 3));
+  } else if (mode === 'blast') {
+    const dx = c.cx - P.x, dy = c.cy - P.y, dl = Math.hypot(dx, dy) || 1, k = clamp(1.6 - dl * 0.22, 0.35, 1.4);
+    lv.set(dx / dl * rr(1.5, 4.5) * k, dy / dl * rr(0.5, 3) * k + rr(0, 1.5), V.z * rr(0.6, 1.0) * Math.min(1, k) + rr(0.5, 2));
+    av.set(rr(-2, 2), rr(-1.5, 1.5), rr(-2, 2));
+  } else if (mode === 'topple') {
+    // desmoronamento: o muro tomba para trás (quanto mais alto, mais empurrado)
+    const k = 0.6 + c.r * 0.12;
+    lv.set(rr(-0.6, 0.6), rr(-0.3, 0.5), rr(1.6, 3.4) * k);
+    av.set(rr(0.8, 2.2), rr(-0.5, 0.5), rr(-0.8, 0.8));
+  } else {
+    lv.set(rr(-0.4, 0.4), rr(-0.6, 0.2), rr(0.3, 2.2));
+    av.set(rr(0.2, 1.1), rr(-0.4, 0.4), rr(-0.7, 0.7)); // tomba para trás (para longe do carro)
+  }
+  const zc = W.z + W.d / 2;
+  // os do caminho do carro sempre têm física; os arrancados de lado e os de cima só enquanto couber
+  if (W.dyn.length >= (mode === 'hit' ? W.max + 8 : mode === 'blast' ? W.max * 0.6 : W.max)) {
+    c.g = { p: new THREE.Vector3(c.cx, c.cy, zc), v: lv.clone(), w: av.clone(), q: new THREE.Quaternion(), q0: null, rest: 0 };
+    W.ghosts.push(c);
+    return;
+  }
+  const b = dynBody(380 * c.w / W.bw, PHY.mats.heavy, new CANNON.Box(new CANNON.Vec3(c.w / 2 - 0.01, W.bh / 2 - 0.01, W.d / 2 - 0.01)), c.cx, c.cy, zc);
+  b.sleepSpeedLimit = 0.4; b.sleepTimeLimit = 0.35; b.angularDamping = 0.12;
+  b.velocity.set(lv.x, lv.y, lv.z); b.angularVelocity.set(av.x, av.y, av.z);
+  c.o = addDyn(b, new THREE.Object3D(), { kind: 'brick' });
+  W.dyn.push(c);
+}
+
+// blocos sem apoio caem: no buraco basta um apoio embaixo; no desmoronamento precisa de todos
+function bwallCascade(strict) {
+  const W = BWALL, out = [];
+  for (let r = 1; r < W.nr; r++) {
+    for (const c of W.rows[r].cells) {
+      if (c.st >= 2 || c.fall) continue;
+      let have = 0;
+      for (const s of c.sup) if (s.st < 2 && !s.fall) have++;
+      if (have === 0 || (strict && have < c.sup.length)) { c.fall = true; out.push(c); }
+    }
+  }
+  return out;
+}
+
+// blocos que estavam esperando a vez de cair (o desmoronamento vai subindo fiada por fiada)
+function bwallQueue() {
+  const W = BWALL, now = PHY.time, rows = new Set();
+  let n = 0, sx = 0, sy = 0;
+  for (let i = W.queue.length - 1; i >= 0; i--) {
+    const e = W.queue[i];
+    if (e.t > now) continue;
+    W.queue.splice(i, 1);
+    if (e.c.st >= 2) continue;
+    bwallDrop(e.c, e.m);
+    rows.add(e.c.r); n++; sx += e.c.cx; sy += e.c.cy;
+    if (Math.random() < 0.5) bwallDust(e.c.cx, e.c.cy, W.z + W.d / 2, 1, 0.7);
+  }
+  if (!n) return;
+  for (const r of rows) bwallRow(r);
+  AUDIO.crumble(clamp(n / 6, 0.25, 1));
+  if (n > 2) bwallChunks(sx / n, sy / n, W.z + W.d, Math.min(6, n), 0, 0, 1.5);
+}
+
+// antes de cada passo da física: blocos na fila caem; o carro vai bater no muro?
+function bwallStep(car, h, warm) {
+  const W = BWALL;
+  if (W.queue.length) bwallQueue();
+  if (warm || !car || car.mrBusy() || car.loopM) return;
+  const b = car.body, v = b.velocity, p = b.position;
+  if (!W.passed && p.z > W.z + W.d + 0.8 && (W.dyn.length || W.ghosts.length) && Math.abs(p.x) < W.w / 2 && p.y < W.h) bwallPassed(car);
+  if (PHY.time < W.cool) return;
+  if (v.z < 2.5 || p.z < W.z - 14 || p.z > W.z + 4) return;
+  // cantos das duas caixas de colisão do carro (já amassadas) no mundo
+  const q = _q1.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w);
+  let zMax = -1e9;
+  for (let si = 0, k = 0; si < 2; si++) {
+    const he = b.shapes[si].halfExtents, off = b.shapeOffsets[si];
+    for (let j = 0; j < 8; j++, k++) {
+      const C = _bwC[k].set(off.x + (j & 1 ? he.x : -he.x), off.y + (j & 2 ? he.y : -he.y), off.z + (j & 4 ? he.z : -he.z)).applyQuaternion(q);
+      C.x += p.x; C.y += p.y; C.z += p.z;
+      if (C.z > zMax) zMax = C.z;
+    }
+  }
+  // só no primeiro toque da frente (se a ponta já passou, o carro está atravessando um buraco)
+  if (zMax + v.z * h * 1.6 < W.z || zMax > W.z + 0.35) return;
+  let fx0 = 1e9, fx1 = -1e9, fy0 = 1e9, fy1 = -1e9, px = 0, py = 0, n = 0;
+  for (let k = 0; k < 16; k++) {
+    const C = _bwC[k];
+    fx0 = Math.min(fx0, C.x); fx1 = Math.max(fx1, C.x); fy0 = Math.min(fy0, C.y); fy1 = Math.max(fy1, C.y); // o carro inteiro tem que passar
+    if (C.z > zMax - 0.3) { px += C.x; py += C.y; n++; }
+  }
+  const F = { x0: fx0 - 0.12, x1: fx1 + 0.12, y0: fy0 - 0.3, y1: fy1 }; // rodas embaixo e dos lados
+  // enquanto atravessa, o carro sobe/desce e anda de lado: o buraco segue a trajetória
+  const T = (car.spec.L + W.d + 0.6) / Math.max(4, v.z * 0.8), tPk = clamp(v.y / GRAV, 0, T);
+  F.y1 += Math.min(2.5, Math.max(0, v.y * tPk - 0.5 * GRAV * tPk * tPk)); F.y0 += Math.max(-1.5, Math.min(0, v.y * T - 0.5 * GRAV * T * T));
+  if (v.x > 0) F.x1 += Math.min(2, v.x * T); else F.x0 += Math.max(-2, v.x * T);
+  if (F.x1 < -W.w / 2 || F.x0 > W.w / 2 || F.y0 > W.h) return;
+  const hit = W.cells.filter(c => c.st < 2 && c.x1 > F.x0 && c.x0 < F.x1 && c.y1 > F.y0 && c.y0 < F.y1);
+  if (!hit.length) return; // passa pelo buraco que já existe
+  W.cool = PHY.time + 0.3;
+  bwallImpact(car, F, _bwP.set(px / n, py / n, W.z), 0.5 * car.spec.mass * v.z * v.z / 1000, hit);
+}
+
+// o carro atravessou o muro (pelo buraco que ele mesmo abriu)
+function bwallPassed(car) {
+  const W = BWALL, run = GAME.run;
+  W.passed = true;
+  if (GAME.car !== car || !run || (GAME.state !== 'run' && GAME.state !== 'ending')) return;
+  if ((run.wallBrk || 0) < 3) {
+    run.wallBrk = 3;
+    const add = Math.max(0, 1000 - W.pts);
+    if (add > 0) { W.pts += add; run.tgt += add; popPoints(add); }
+    callout('ATRAVESSOU!', 's2');
+    bwallCamStart(car.root.position);
+  }
+}
+
+function bwallImpact(car, F, P, E, hit) {
+  const W = BWALL, run = GAME.run, b = car.body, v = b.velocity;
+  const live = GAME.car === car && run && (GAME.state === 'run' || GAME.state === 'ending');
+  if (car.onWall && car.speed > 2) car.onWall(car, P);
+  // blocos já trincados cedem mais fácil
+  const weak = hit.reduce((a, c) => a + (c.st === 1 ? 1 : 0), 0) / hit.length;
+  const Ek = E * (1 + 0.6 * weak);
+  if (Ek < BW_E.crack) return;
+  const V = _v2.set(v.x, v.y, v.z), brk = [];
+  let lvl;
+  if (Ek < BW_E.punch) {
+    lvl = 1;
+    bwallCrack(F.x0 - 0.3, F.x1 + 0.3, F.y0, F.y1 + 0.3, clamp(Ek / BW_E.punch, 0.45, 1));
+  } else if (Ek < BW_E.hole) {
+    // solta o bloco mais encostado (e o vizinho, se a batida for mais forte)
+    lvl = 2;
+    const ov = (c) => Math.max(0, Math.min(c.x1, F.x1) - Math.max(c.x0, F.x0)) * Math.max(0, Math.min(c.y1, F.y1) - Math.max(c.y0, F.y0));
+    const L = hit.slice().sort((a, c) => ov(c) - ov(a));
+    for (let i = 0; i < Math.min(Ek > (BW_E.punch + BW_E.hole) / 2 ? 2 : 1, L.length); i++) brk.push(L[i]);
+    bwallCrack(F.x0 - 1, F.x1 + 1, F.y0 - 0.6, F.y1 + 1, 1);
+  } else {
+    // buraco do tamanho da frente do carro (com folga que cresce com a força) ou desmoronamento
+    const big = Ek >= BW_E.fall, u = clamp((Ek - BW_E.hole) / (BW_E.fall - BW_E.hole), 0, 1);
+    lvl = big ? 4 : 3;
+    const mx = big ? 1 + Math.min(2.5, (Ek - BW_E.fall) / 200) : 0.2 + 0.8 * u;
+    const my = big ? 0.6 + Math.min(1.5, (Ek - BW_E.fall) / 300) : 0.1 + 0.5 * u;
+    for (const c of W.cells) if (c.st < 2 && c.x1 > F.x0 - mx && c.x0 < F.x1 + mx && c.y1 > F.y0 - my && c.y0 < F.y1 + my) brk.push(c);
+    bwallCrack(F.x0 - mx - 1.6, F.x1 + mx + 1.6, F.y0 - my - 1.2, F.y1 + my + 1.6, 0.85);
+  }
+  if (!brk.length) { bwallDust(P.x, P.y, P.z - 0.3, 3, 0.6); return; }
+  const rows = new Set();
+  for (const c of brk) {
+    const inF = c.x1 > F.x0 && c.x0 < F.x1 && c.y1 > F.y0 && c.y0 < F.y1;
+    bwallDrop(c, inF ? 'hit' : 'blast', V, P); rows.add(c.r);
+  }
+  // o que ficou sem apoio cai depois, de baixo para cima
+  const fall = bwallCascade(lvl === 4);
+  let rMin = 99;
+  for (const c of brk) rMin = Math.min(rMin, c.r);
+  for (const c of fall) W.queue.push({ c, t: PHY.time + 0.06 + Math.max(0, c.r - rMin) * 0.075 + rr(0, 0.05), m: lvl === 4 ? 'topple' : 'fall' });
+  for (const r of rows) bwallRow(r);
+  // o carro passa pelo buraco? (perde velocidade e amassa a frente)
+  const pass = lvl >= 3 && !W.cells.some(c => c.st < 2 && c.x1 > F.x0 + 0.1 && c.x0 < F.x1 - 0.1 && c.y1 > F.y0 + 0.35 && c.y0 < F.y1 - 0.1);
+  W.last = { E: Math.round(E), lvl, pass, // resumo da última batida (usado nos testes)
+    nb: brk.length, nf: fall.length, F: [+F.x0.toFixed(2), +F.x1.toFixed(2), +F.y0.toFixed(2), +F.y1.toFixed(2)], vz: +V.z.toFixed(1), t: +PHY.time.toFixed(2) };
+  if (pass) {
+    const Ea = Math.min(0.6 * E, BW_E.hole * 0.55 + 4 * brk.length), f = Math.sqrt(Math.max(0.05, 1 - Ea / E));
+    const dv = V.z * (1 - f);
+    v.z *= f; v.x *= 0.7 + 0.3 * f; v.y *= 0.75 + 0.25 * f;
+    const w = b.angularVelocity; w.x += rr(-0.7, 0.7); w.y += rr(-0.5, 0.5); w.z += rr(-0.5, 0.5);
+    const crush = Math.max(0, dv * 2.4 + 4) * car.spec.fragility * 1.15 * car.crushK; // ~3/4 de uma batida num muro que não quebra
+    car.hitWall(P, crush, W.rows[0].st[0] ? W.rows[0].st[0].body : null);
+  }
+  // efeitos: poeira, pedaços, som, tremida e pontos
+  const k = lvl / 4;
+  bwallDust(P.x, P.y, P.z - 0.2, Math.round(4 + 22 * k), 0.6 + 0.6 * k);
+  bwallDust(P.x, P.y, P.z + W.d + 0.5, Math.round(2 + 14 * k), 0.6 + 0.6 * k);
+  bwallChunks(P.x, P.y, P.z, Math.round(4 + 26 * k), V.x * 0.3, 0, V.z * (pass ? 0.6 : -0.15));
+  if (pass) { FX.debrisBurst(P, V, Math.round(3 + 8 * k), car.paintColor); FX.sparks(P, _v4.set(V.x * 0.25, 1.5, V.z * 0.1), Math.round(8 + 18 * k), 1.3); }
+  AUDIO.rubble(k);
+  if (!live) return;
+  GAME.cam.shake = Math.min(1.8, GAME.cam.shake + 0.4 + 0.9 * k);
+  vibrate(Math.round(40 + 110 * k));
+  run.wallBrk = Math.max(run.wallBrk || 0, lvl);
+  if (lvl === 2) callout('RACHOU!', 's3');
+  if (lvl >= 3) {
+    const pts = lvl === 4 ? 2500 : 1000, add = Math.max(0, pts - W.pts);
+    if (add > 0) { W.pts += add; run.tgt += add; popPoints(add); }
+    callout(lvl === 4 ? 'DESMORONOU!' : 'BURACO NO MURO!', 's2');
+    if (WORLD.crowd) WORLD.crowd.excite = 1;
+    if (GAME.slowCool <= 0 || lvl === 4) { GAME.slowT = Math.max(GAME.slowT, 0.95); GAME.slowCool = 2.6; }
+    if (pass) bwallCamStart(P);
+  }
+}
+
+// a cada quadro: os blocos soltos seguem os corpos (instâncias do mesmo desenho)
+function bwallFrame(dt) {
+  const W = BWALL;
+  if (!W.on || (!W.dyn.length && !W.ghosts.length)) return;
+  let ch = false;
+  // blocos sem física: caem, quicam no chão e assentam de pé
+  for (const c of W.ghosts) {
+    const g = c.g;
+    if (g.rest >= 1) continue;
+    if (g.rest > 0) {
+      g.rest = Math.min(1, g.rest + dt * 4);
+      const k = Math.min(1, dt * 10);
+      g.q.slerp(g.q0, k); g.p.y += (g.hy - g.p.y) * k;
+      if (g.rest >= 1) { g.q.copy(g.q0); g.p.y = g.hy; }
+    } else {
+      g.v.y -= GRAV * dt; g.p.addScaledVector(g.v, dt);
+      _bwE.set(g.w.x * dt, g.w.y * dt, g.w.z * dt); _q2.setFromEuler(_bwE); g.q.premultiply(_q2);
+      let yMin = 0;
+      for (let j = 0; j < 8; j++) { _v1.set(j & 1 ? c.w / 2 : -c.w / 2, j & 2 ? W.bh / 2 : -W.bh / 2, j & 4 ? W.d / 2 : -W.d / 2).applyQuaternion(g.q); if (_v1.y < yMin) yMin = _v1.y; }
+      if (g.p.y + yMin < 0) {
+        g.p.y = -yMin;
+        if (g.v.y < 0) g.v.y *= -0.22;
+        g.v.x *= 0.5; g.v.z *= 0.5; g.w.multiplyScalar(0.45);
+        if (Math.abs(g.v.y) < 1 && Math.hypot(g.v.x, g.v.z) < 1.2) {
+          // assenta na face que está mais virada para baixo (de pé, deitado ou de lado)
+          let best = 0, ax = 0;
+          for (let a = 0; a < 3; a++) { _v1.set(a === 0 ? 1 : 0, a === 1 ? 1 : 0, a === 2 ? 1 : 0).applyQuaternion(g.q); if (Math.abs(_v1.y) > Math.abs(best)) { best = _v1.y; ax = a; } }
+          _v1.set(ax === 0 ? 1 : 0, ax === 1 ? 1 : 0, ax === 2 ? 1 : 0).applyQuaternion(g.q).normalize();
+          g.q0 = new THREE.Quaternion().setFromUnitVectors(_v1, _v2.set(0, Math.sign(best) || 1, 0)).multiply(g.q);
+          g.hy = ax === 0 ? c.w / 2 : ax === 1 ? W.bh / 2 : W.d / 2;
+          g.rest = 0.01;
+          if (Math.random() < 0.4) bwallDust(g.p.x, 0.4, g.p.z, 1, 0.6);
+        }
+      }
+    }
+    _m1.compose(g.p, g.q, _bwS.set(c.w, W.bh, W.d)); W.mesh.setMatrixAt(c.i, _m1); ch = true;
+  }
+  for (const c of W.dyn) {
+    const o = c.o;
+    if (!o || !o.alive) continue;
+    if (o.body.sleepState === CANNON.Body.SLEEPING && c.slept) continue;
+    c.slept = o.body.sleepState === CANNON.Body.SLEEPING;
+    _m1.compose(o.mesh.position, o.mesh.quaternion, _bwS.set(c.w, W.bh, W.d));
+    W.mesh.setMatrixAt(c.i, _m1); ch = true;
+  }
+  if (ch) W.mesh.instanceMatrix.needsUpdate = true;
+}
+
+// câmera do muro: corta para trás do muro e vê o carro atravessar o buraco
+function bwallCamStart(P) {
+  const c = GAME.cam, W = BWALL;
+  if (c.mode !== 'chase') return;
+  const sx = P.x > 0 ? -1 : 1;
+  c.mode = 'wall'; c.wallT = 0;
+  // de lado e um pouco alto: os blocos voam para trás sem tapar o carro
+  c.pos.set(clamp(P.x + sx * 10, -W.w / 2 + 3, W.w / 2 - 3), Math.max(5.5, P.y + 4), W.z + W.d + 12);
+  c.look.set(P.x, Math.max(1, P.y), W.z);
+  c.airOff = null;
+}
+function bwallCam(c, dt, P, car) {
+  const W = BWALL, zB = W.z + W.d;
+  c.wallT += dt;
+  _cl.set(P.x, P.y + 0.5, P.z);
+  c.look.lerp(_cl, 1 - Math.exp(-dt * 7));
+  c.pos.y += dt * 0.3;
+  // bloco voando na direção da câmera: ela sobe e recua um pouco
+  let dMin = 99;
+  for (const b of W.dyn) if (b.o && b.o.alive) dMin = Math.min(dMin, b.o.mesh.position.distanceTo(c.pos));
+  for (const b of W.ghosts) dMin = Math.min(dMin, b.g.p.distanceTo(c.pos));
+  if (dMin < 3.5) { c.pos.y += dt * 9; c.pos.z += dt * 4; }
+  // ficou preso no buraco: volta para a frente do muro
+  if (c.wallT > 1.6 && P.z < zB + 0.3) { c.mode = 'chase'; c.pos.set(P.x + 3, P.y + 3, W.z - 8); return; }
+  // o carro chegou perto da câmera ou seguiu andando: volta a seguir (parado logo atrás do muro, a vista fica)
+  if (P.z > c.pos.z - 3 || (c.wallT > 2.8 && car.speed > 6)) c.mode = 'chase';
+}
+// a câmera não atravessa o muro: fica do mesmo lado do carro
+function bwallCamClamp(c, P) {
+  const W = BWALL, zF = W.z, zB = W.z + W.d;
+  if (Math.abs(c.pos.x) > W.w / 2 + 1 || c.pos.y > W.h + 1) return;
+  const past = P.z > zB + 0.3;
+  if (past && c.pos.z < zB + 1.4 && c.pos.z > zF - 30) c.pos.z = zB + 1.4;
+  else if (!past && c.pos.z > zF - 1 && c.pos.z < zB + 30) c.pos.z = zF - 1;
 }
 
 /* ---------- comportamentos ---------- */
@@ -3779,6 +4334,7 @@ function explodeBarrel(o) {
 }
 const _bc = new THREE.Vector3();
 function updateObstacles(dt) {
+  bwallFrame(dt);
   for (const rec of OB.balloons) {
     rec.t += dt;
     for (const bl of rec.balloons) {
@@ -3825,6 +4381,7 @@ function postStepObstacles(car) {
       const o = a || b;
       if (o.kind === 'crate' || o.kind === 'plank') { if (lam > 140) AUDIO.wood(clamp(lam / 600, 0.2, 1)); }
       else if (o.kind === 'barrel' || o.kind === 'junk' || o.kind === 'container' || o.kind === 'ball') { if (lam > 300) AUDIO.clank(clamp(lam / 2500, 0.2, 1)); }
+      else if (o.kind === 'brick') { if (lam > 900) AUDIO.thud(clamp(lam / 7000, 0.2, 1)); }
     }
   }
   if (OB.breakQueue.length) {
@@ -6126,6 +6683,13 @@ function kickArrowTex() {
   return t;
 }
 
+// texto do quadro do alvo no resultado (o muro quebrado vale mais que o anel)
+function tgtWhy(run) {
+  const w = run.wallBrk || 0;
+  if (w >= 4) return 'derrubou o muro!';
+  if (w >= 3) return run.tgtRing === 0 ? 'na mosca e furou!' : 'furou o muro!';
+  return run.tgtRing === 0 ? 'na mosca!' : run.tgt > 0 ? 'acertou' : run.tgtDone ? 'errou' : 'não chegou';
+}
 // o carro encostou no muro: vale o primeiro toque com o carro ainda andando
 function onWallHit(car, p) {
   const run = GAME.run;
@@ -11146,6 +11710,26 @@ AUDIO.rumble = function (k) {
   this.rbG.gain.setTargetAtTime(k * 0.3, this.ctx.currentTime, 0.2);
   this.rbO.frequency.setTargetAtTime(34 + 16 * k, this.ctx.currentTime, 0.3);
 };
+// muro de concreto quebrando: estrondo grave + pedaços batendo
+AUDIO.rubble = function (k) {
+  if (!this.ok('rubble', 0.15)) return;
+  this.noiseBurst('lowpass', 360 + 520 * k, 0.7, 0.5 + 0.45 * k, 0.55 + 0.9 * k);
+  this.tone('sine', 60, 26, 0.45 + 0.5 * k, 0.6 + 0.5 * k);
+  const n = Math.round(3 + 7 * k);
+  for (let i = 0; i < n; i++) this.noiseBurst('bandpass', rr(450, 1500), 1.6, 0.1 + 0.12 * k, rr(0.05, 0.15), rr(0.04, 0.25 + 0.9 * k));
+};
+// blocos caindo do muro (desmoronando)
+AUDIO.crumble = function (k) {
+  if (!this.ok('crumble', 0.09)) return;
+  this.noiseBurst('lowpass', rr(260, 520), 0.8, 0.22 + 0.3 * k, rr(0.25, 0.5));
+  for (let i = 0; i < 3; i++) this.noiseBurst('bandpass', rr(500, 1300), 1.8, 0.06 + 0.08 * k, rr(0.04, 0.1), rr(0, 0.18));
+};
+// bloco batendo no chão
+AUDIO.thud = function (k) {
+  if (!this.ok('thud', 0.06)) return;
+  this.noiseBurst('lowpass', rr(220, 420), 0.9, 0.18 + 0.3 * k, 0.22);
+  this.tone('sine', rr(70, 95), 40, 0.16 + 0.25 * k, 0.2);
+};
 
 /* ---------- começa uma Mega Rampa ---------- */
 function startMega(idx) {
@@ -11169,7 +11753,7 @@ function startMega(idx) {
     t: 0, count: 3.6, lastCount: 4, started: false, takeoff: false, landed: false, takeoffT: 0, lipZ: 0,
     dist: 0, still: 0, endT: 0, hits: 0, crashed: false, airShown: false, bigHits: 0, wallHit: false,
     pts: 0, shownPts: 0, dmgMax: 0, liveHits: 0, hitT: 0, pend: 0, pendT: 0, diamond: false,
-    springDone: false, turboCall: false, tricks: 0, tgt: 0, tgtDone: false, tgtRing: -1,
+    springDone: false, turboCall: false, tricks: 0, tgt: 0, tgtDone: false, tgtRing: -1, wallBrk: 0,
     mega: true, orbits: 0, rings: 0, vMax: 0, bhEnd: false, bhEndT: 0, lavaCap: false, lavaEnd: false, lavaEndT: 0,
     whirlCap: false, whirlEnd: false, whirlEndT: 0, bites: 0, gooCap: false, gooEnd: false, gooEndT: 0, gooPool: false, gooDrain: false,
   };
@@ -11248,7 +11832,7 @@ function mrFinish() {
   } else {
     $('rTgtBox').firstElementChild.textContent = 'Alvo';
     $('rTgt').textContent = run.tgt > 0 ? fmt(run.tgt) : '—';
-    $('rTgtWhy').textContent = run.tgtRing === 0 ? 'na mosca!' : run.tgt > 0 ? 'acertou' : run.tgtDone ? 'errou' : 'não chegou';
+    $('rTgtWhy').textContent = tgtWhy(run);
   }
   $('rPts').textContent = '0';
   $('rBreak').innerHTML = '';
@@ -11609,7 +12193,7 @@ function setLoadMsg(t) { const el = $('loadMsg'); if (el) el.textContent = t; }
    Ao abrir e ao voltar para o app, lê version.txt. Se a versão publicada for outra, recarrega
    num endereço novo (?v=...) para não usar a cópia guardada no celular. No meio da corrida
    espera voltar para um menu. Ao publicar: aumente APP_VER aqui e o número em version.txt. */
-const APP_VER = '7.0';
+const APP_VER = '7.1';
 const UPD = { pending: null, busy: false, last: 0 };
 const UPD_MENU = ['title', 'garage', 'levels', 'records', 'ramp', 'megasel'];
 function updOn() { return /^https?:$/.test(location.protocol) && !/claude|anthropic/i.test(location.hostname); }
@@ -11870,7 +12454,7 @@ function startLevel(idx) {
     t: 0, count: 3.6, lastCount: 4, started: false, takeoff: false, landed: false, takeoffT: 0, lipZ: 0,
     dist: 0, still: 0, endT: 0, hits: 0, crashed: false, airShown: false, bigHits: 0, wallHit: false,
     pts: 0, shownPts: 0, dmgMax: 0, liveHits: 0, hitT: 0, pend: 0, pendT: 0, diamond: false,
-    springDone: false, turboCall: false, tricks: 0, tgt: 0, tgtDone: false, tgtRing: -1,
+    springDone: false, turboCall: false, tricks: 0, tgt: 0, tgtDone: false, tgtRing: -1, wallBrk: 0,
   };
   $('hPts').textContent = '0';
   $('hDmgMeter').classList.remove('hot', 'full');
@@ -11960,6 +12544,7 @@ function physicsStep(h, warm) {
     if (car.fireRocket()) { run.rocket = true; GAME.cam.shake = Math.min(1, GAME.cam.shake + 0.3); vibrate(40); }
   } else if (GAME.input.rocketTap && GAME.state !== 'countdown') GAME.input.rocketTap = false;
   if (car.loopM) car.loopWheels(h); else if (car.mrBusy()) car.bhWheels(h); else car.step(h, ctl);
+  if (BWALL.on) bwallStep(car, h, warm); // muro do alvo: quebra antes do contato se a batida for forte
   PHY.world.internalStep(h);
   if (car.loopM) car.loopAdvance(h); // no loop o carro segue o trilho
   else if (car.bhM) car.bhAdvance(h); // no buraco negro o carro segue a espiral
@@ -12010,7 +12595,7 @@ function nanGuard(car) {
 /* ---------- impactos ---------- */
 // quanto o que foi atingido machuca motor/tanque: bola de demolição, contêiner e ônibus > muro > caixa > feno
 const WRECK_T = { heat: 0.8, leak: 0.45, eng: 0.8, scale: 0.2 }; // limites do estresse (calibrados nos testes)
-const WRECK_SRC = { ball: 1.35, container: 1.25, bus: 1.25, car: 1.15, block: 1.1, fan: 1.2, blender: 1.2, junk: 0.85, tire: 0.6, wheel: 0.6, part: 0.6, crate: 0.6, plank: 0.5, domino: 0.6, pin: 0.5, cone: 0.25, hay: 0.2, glass: 0.4 };
+const WRECK_SRC = { ball: 1.35, container: 1.25, bus: 1.25, car: 1.15, block: 1.1, brick: 0.95, fan: 1.2, blender: 1.2, junk: 0.85, tire: 0.6, wheel: 0.6, part: 0.6, crate: 0.6, plank: 0.5, domino: 0.6, pin: 0.5, cone: 0.25, hay: 0.2, glass: 0.4 };
 function wreckSrcK(o) {
   const u = o && o.userData;
   if (!u) return 0.8;
@@ -12183,7 +12768,7 @@ function calloutNow(text, cls) {
 function countHits() {
   let hits = 0;
   for (const o of PHY.dyn) {
-    if (o.kind === 'part' || o.kind === 'wheel' || o.kind === 'plank' || o.kind === 'ball' || o.kind === 'frag') continue;
+    if (o.kind === 'part' || o.kind === 'wheel' || o.kind === 'plank' || o.kind === 'ball' || o.kind === 'frag' || o.kind === 'brick') continue;
     if (o.counted) { hits++; continue; }
     if (!o.alive) { o.counted = true; hits++; continue; }
     const b = o.body;
@@ -12405,7 +12990,7 @@ function finishRun() {
   $('rGoal').textContent = 'meta ' + Math.round(info.Jt) + ' m';
   $('rHits').textContent = String(hits);
   $('rTgt').textContent = run.tgt > 0 ? fmt(run.tgt) : '—';
-  $('rTgtWhy').textContent = run.tgtRing === 0 ? 'na mosca!' : run.tgt > 0 ? 'acertou' : run.tgtDone ? 'errou' : 'não chegou';
+  $('rTgtWhy').textContent = tgtWhy(run);
   $('rPts').textContent = '0';
   $('rBreak').innerHTML = '';
   const oldGem = $('rDmgBox').querySelector('.r-gem');
@@ -12592,6 +13177,7 @@ function updateCamera(dt) {
     if (car.nitro) c.shake = Math.max(c.shake, 0.06);
     if (car.speed > 60) c.shake = Math.max(c.shake, 0.03 + (car.speed - 60) * 0.002);
   }
+  else if (c.mode === 'wall') bwallCam(c, dt, P, car);
   else if (c.mode === 'lake') lakeCam(c, dt, P, scale, portrait);
   else if (c.mode === 'loopv') loopCam(c, dt, P, car);
   else if (c.mode === 'intro') {
@@ -12610,7 +13196,8 @@ function updateCamera(dt) {
     c.flipK = damp(c.flipK || 0, flipOn ? 1 : 0, flipOn ? 3 : 1.1, dt);
     const fk = c.flipK;
     const dist = (air ? 9.2 - 1.4 * fk : 7.6) * scale * (portrait ? 1.3 : 1);
-    const hgt = (air ? 3.4 - 0.8 * fk : landed ? 3.0 : 2.5) * scale;
+    const rub = BWALL.passed && P.z > BWALL.z && P.z - BWALL.z < 35 ? 2.4 : 0; // logo depois do muro quebrado: por cima do entulho
+    const hgt = (air ? 3.4 - 0.8 * fk : landed ? 3.0 : 2.5) * scale + rub;
     const side = air ? 1.8 + 6.2 * fk * scale : 0;
     _cp.copy(P).addScaledVector(c.heading, -dist);
     _cp.x += -c.heading.z * side; _cp.z += c.heading.x * side;
@@ -12636,17 +13223,20 @@ function updateCamera(dt) {
     if (car.nitro || (car.turbo > 0 && !car.turboQuiet)) c.shake = Math.max(c.shake, 0.06);
   } else if (c.mode === 'orbit') {
     const info = GAME.info;
-    const nearWall = info && info.wallZ - P.z < 10;
-    c.orbitBase = (c.orbitBase == null ? Math.PI : c.orbitBase) + c.orbitDrag; c.orbitDrag *= 0.88;
+    // passou pelo buraco do muro: gira do lado de trás (o muro quebrado aparece ao fundo)
+    const zB = BWALL.z + BWALL.d, past = BWALL.on && P.z > zB + 0.3;
+    const nearWall = info && (past ? P.z - zB < 10 : info.wallZ - P.z < 10), a0 = past ? 0 : Math.PI;
+    c.orbitBase = (c.orbitBase == null ? a0 : c.orbitBase) + c.orbitDrag; c.orbitDrag *= 0.88;
     let a;
-    if (nearWall) { c.orbitBase = clamp(c.orbitBase, Math.PI - 1.2, Math.PI + 1.2); a = c.orbitBase + Math.sin(c.t * 0.45) * 0.55; }
+    if (nearWall) { c.orbitBase = clamp(c.orbitBase, a0 - 1.2, a0 + 1.2); a = c.orbitBase + Math.sin(c.t * 0.45) * 0.55; }
     else { c.orbitBase += dt * 0.3; a = c.orbitBase; }
     const dist = 8.2 * scale * (portrait ? 1.35 : 1);
     _cp.set(P.x + Math.sin(a) * dist, Math.max(P.y + 2.8 * scale, 1.5), P.z + Math.cos(a) * dist);
-    if (info) _cp.z = Math.min(_cp.z, info.wallZ - 1.2);
+    if (info) _cp.z = past ? Math.max(_cp.z, zB + 1.5) : Math.min(_cp.z, info.wallZ - 1.2);
     _cl.set(P.x, P.y + 0.3, P.z);
     c.pos.lerp(_cp, 1 - Math.exp(-dt * 2.5)); c.look.lerp(_cl, 1 - Math.exp(-dt * 5));
   }
+  if (BWALL.on && (c.mode === 'chase' || c.mode === 'orbit')) bwallCamClamp(c, P);
   if (c.pos.y < 0.6 && c.mode !== 'lake' && c.mode !== 'whirl') c.pos.y = 0.6;
   camera.position.copy(c.pos);
   if (c.shake > 0.001) {
@@ -13325,6 +13915,7 @@ window.__RR = {
   GAME, LEVELS, CAR_SPECS, WRECK_T, PHY, TRAPS, startLevel, setState, REC, GEM3D, SCORE, scoreOf, countHits, showMega, closeMega, renderRecords, clearLevel,
   RAMPS, ART, openRamp, pickRamp, artSVG, artPose, predictJump, rampProfile, FX, LAKE, SHARK,
   MEGA_RAMPS, startMega, mrProfile, BG, BHOLE, EARTH, VOLC, volcGroundY, WHIRL, whirlSurfY, ESG, buildMegaGrid, pickMega, renderWorld: () => renderWorld(),
+  BWALL, BW_E,
   camera: () => camera, scene: () => scene, buildWheelMesh, buildCarVisual, CARMAT,
   render() { renderWorld(); },
   rinfo() { const i = renderer.info.render; return { calls: i.calls, tris: i.triangles }; },

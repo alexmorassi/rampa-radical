@@ -11,6 +11,10 @@ Jogo infantil de destruição de carros para celular: pegue velocidade, salte da
 - **Redemoinho**: o redemoinho gigante no mar engole o carro e, no fundo, o megalodon e o mosassauro comem tudo.
 - **Esgoto**: largada numa chaminé, cano gigante, cachoeira de esgoto e salto no piscinão de gosma; o ralo engole e o cano de saída cospe no rio.
 
+## Muro do alvo
+- O muro com o alvo no fim das pistas é feito de blocos de concreto e quebra conforme a força da batida (peso e velocidade do carro).
+- Batida fraca racha os blocos; média solta um ou dois; forte abre um buraco por onde o carro passa (+1.000); muito forte faz o muro desmoronar (+2.500).
+
 ## Instalar no celular
 Abra o link no navegador e use "Adicionar à Tela de Início" (iPhone: botão Compartilhar; Android: menu ⋮). O jogo abre em tela cheia com o ícone do Rampa Radical.
 
