@@ -1,5 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Rampa Radical</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#14171c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rampa Radical">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Bungee&display=swap">
@@ -8692,6 +8700,36 @@ let renderer, scene, camera;
 
 function setLoadMsg(t) { const el = $('loadMsg'); if (el) el.textContent = t; }
 
+/* ---------- atualização automática (jogo publicado num site, ex.: GitHub Pages) ----------
+   Ao abrir e ao voltar para o app, lê version.txt. Se a versão publicada for outra, recarrega
+   num endereço novo (?v=...) para não usar a cópia guardada no celular. No meio da corrida
+   espera voltar para um menu. Ao publicar: aumente APP_VER aqui e o número em version.txt. */
+const APP_VER = '5.1';
+const UPD = { pending: null, busy: false, last: 0 };
+const UPD_MENU = ['title', 'garage', 'levels', 'records', 'ramp', 'megasel'];
+function updOn() { return /^https?:$/.test(location.protocol) && !/claude|anthropic/i.test(location.hostname); }
+function checkUpdate() {
+  if (!updOn() || UPD.busy || Date.now() - UPD.last < 15000) return;
+  UPD.busy = true; UPD.last = Date.now();
+  fetch('version.txt?t=' + Date.now(), { cache: 'no-store' })
+    .then(r => (r.ok ? r.text() : ''))
+    .then(t => { const v = String(t || '').trim(); if (/^[\w.-]{1,24}$/.test(v) && v !== APP_VER) { UPD.pending = v; applyUpdate(); } })
+    .catch(() => { /* sem internet: tenta de novo na próxima vez */ })
+    .then(() => { UPD.busy = false; });
+}
+function applyUpdate() {
+  const v = UPD.pending;
+  if (!v || !UPD_MENU.includes(GAME.state)) return;
+  // já abriu esse endereço e mesmo assim veio a versão velha: não fica recarregando
+  let tried = false;
+  try { tried = new URLSearchParams(location.search).get('v') === v; } catch (e) { tried = true; }
+  if (tried) return;
+  UPD.pending = null;
+  setLoadMsg('Versão nova! Atualizando…');
+  $('loading').hidden = false;
+  setTimeout(() => location.replace(location.pathname + '?v=' + encodeURIComponent(v) + location.hash), 300);
+}
+
 function boot(hot) {
   if (typeof THREE === 'undefined' || typeof CANNON === 'undefined') {
     setLoadMsg('Não consegui carregar o motor 3D. Confira a internet e toque aqui para tentar de novo.');
@@ -8754,13 +8792,15 @@ function boot(hot) {
   window.addEventListener('resize', onResize);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { if (GAME.state === 'run' || GAME.state === 'countdown') pauseGame(); AUDIO.suspend(); }
-    else AUDIO.resume();
+    else { AUDIO.resume(); checkUpdate(); }
   });
+  window.addEventListener('pageshow', (e) => { if (e.persisted) checkUpdate(); });
   try { window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ carIdx: GAME.carIdx, levelIdx: GAME.levelIdx })); } catch (e) { /* opcional */ }
   $('loading').hidden = true;
   setState('title');
   GAME.last = performance.now();
   requestAnimationFrame(frame);
+  setTimeout(checkUpdate, 800);
 }
 
 /* ---------- garagem (cena de vitrine) ---------- */
@@ -8859,6 +8899,7 @@ function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } cat
 function setState(st) {
   GAME.prevState = GAME.state;
   GAME.state = st;
+  if (UPD.pending && UPD_MENU.includes(st)) setTimeout(applyUpdate, 400);
   const hud = $('hud');
   if (st !== 'result') { $('mega').hidden = true; $('sResult').classList.remove('hold'); GAME.resultTok = (GAME.resultTok || 0) + 1; }
   switch (st) {
