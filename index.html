@@ -174,6 +174,8 @@ h2 { margin: 0; text-wrap: balance; }
 #callouts { position: absolute; inset: 0; overflow: hidden; }
 .callout { position: absolute; font-family: var(--font-display); font-size: clamp(30px, 8vw, 64px); color: var(--hazard); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; text-shadow: 0 6px 0 var(--ink); white-space: nowrap; animation: call 1.1s ease-out forwards; }
 .callout { transition: margin-top 0.16s ease-out; }
+#hud .ctrl, #hud .tip { transition: opacity 0.4s; }
+#hud.cine .ctrl, #hud.cine .tip { opacity: 0; pointer-events: none; }
 .callout.s2 { color: var(--signal); }
 .callout.s3 { color: var(--sky); }
 @keyframes call { 0% { transform: translate(-50%, -50%) scale(0.2) rotate(var(--r)); opacity: 0; } 18% { transform: translate(-50%, -50%) scale(1.15) rotate(var(--r)); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(-50%, -90%) scale(1) rotate(var(--r)); opacity: 0; } }
@@ -2723,6 +2725,8 @@ class Car {
     this.destroyPct = Math.min(100, Math.floor(100 * clamp((raw + wb) / (this.fullK || this.spec.full || DESTROY_FULL), 0, 1) + 0.5));
     // o tubarão do lago comeu o carro inteiro
     if (this.sharkDone || this.bhDone) { this.destroyPct = 100; this.damagePct = 100; }
+    // na espiral do buraco negro o 100% fica para o fim (logo antes de ser engolido)
+    else if (this.bhM) this.destroyPct = Math.min(this.destroyPct, 96);
   }
 
   // 100%: o que ainda resta se desmancha (vidros estouram, painéis voam um a um)
@@ -7665,16 +7669,16 @@ function mrBlackHole(parent) {
   const Rin = Rh * 2.3, Rout = Rh * 7.4;
   const dg = new THREE.RingGeometry(Rin, Rout, 200, 8); dg.rotateX(-Math.PI / 2);
   const dm = new THREE.ShaderMaterial({
-    uniforms: { uT: { value: 0 }, uRin: { value: Rin }, uRout: { value: Rout }, uN: { value: mrNoiseTex() } },
+    uniforms: { uT: { value: 0 }, uRin: { value: Rin }, uRout: { value: Rout }, uN: { value: mrNoiseTex() }, uI: { value: 1 } },
     vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'uniform float uT; uniform float uRin; uniform float uRout; uniform sampler2D uN; varying vec3 vP;\n' +
+    fragmentShader: 'uniform float uT; uniform float uRin; uniform float uRout; uniform sampler2D uN; uniform float uI; varying vec3 vP;\n' +
       'void main(){ float r = length(vP.xz); float rn = clamp((r - uRin) / (uRout - uRin), 0.0, 1.0);\n' +
       ' float a = atan(-vP.z, vP.x); float w = 1.0 / pow(r / uRin, 1.5); float ang = a / 6.2831853 + uT * w * 0.16;\n' +
       ' float n1 = texture2D(uN, vec2(ang * 4.0, rn * 1.4 + uT * 0.01)).r; float n2 = texture2D(uN, vec2(ang * 9.0 + 0.37, rn * 3.6)).r;\n' +
       ' float bands = 0.4 + 1.1 * n1 * (0.5 + 0.8 * n2); float heat = pow(1.0 - rn, 1.7);\n' +
       ' vec3 col = mix(vec3(0.85, 0.2, 0.04), vec3(1.0, 0.7, 0.3), heat); col = mix(col, vec3(1.0, 0.96, 0.88), pow(heat, 5.0));\n' +
       ' float edge = smoothstep(0.0, 0.07, rn) * (1.0 - smoothstep(0.62, 1.0, rn));\n' +
-      ' gl_FragColor = vec4(col * edge * bands * (0.3 + 1.6 * heat), 1.0); }',
+      ' gl_FragColor = vec4(col * edge * bands * (0.3 + 1.6 * heat) * uI, 1.0); }',
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
   });
   const disk = new THREE.Mesh(dg, dm); disk.renderOrder = 3; g.add(disk);
@@ -7712,7 +7716,7 @@ function mrBlackHole(parent) {
   const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); pg.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
   const pts = new THREE.Points(pg, new THREE.PointsMaterial({ map: mrGlowTex(), size: 2.6, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
   pts.frustumCulled = false; g.add(pts);
-  Object.assign(H, { disk: dm, board, boardM: bm, glow, flashS: flash, jets: jt, dust: { pts, st, P, C, Rin, Rout }, light, flash: 0, Rin, Rout });
+  Object.assign(H, { disk: dm, board, boardM: bm, glow, flashS: flash, jets: jt, jetM: jm, dust: { pts, st, P, C, Rin, Rout }, light, flash: 0, Rin, Rout });
   return H;
 }
 function mrBlackHoleUpdate(dt) {
@@ -7720,6 +7724,12 @@ function mrBlackHoleUpdate(dt) {
   if (!H.g) return;
   BG.t += dt;
   H.disk.uniforms.uT.value = BG.t; H.boardM.uniforms.uT.value = BG.t;
+  // câmera colada no carro na espiral: disco e brilho mais fracos (o carro aparece contra o fundo)
+  const car = GAME.car, near = car && car.bhM ? smooth01(car.bhM.u / 0.15) : 0;
+  H.dimK = damp(H.dimK || 0, near, 2, dt);
+  H.disk.uniforms.uI.value = 1 - 0.45 * H.dimK;
+  H.glow.material.opacity = 0.55 * (1 - 0.5 * H.dimK);
+  H.jetM.opacity = 1 - 0.75 * H.dimK;
   H.board.quaternion.copy(camera.quaternion);
   H.jets.offset.y -= dt * 0.6;
   H.flash = Math.max(0, H.flash - dt * 0.8);
@@ -7786,13 +7796,13 @@ function mrAsterHits(car, run) {
     _w2.normalize();
     const t = Math.min(s.W / 2 / Math.max(1e-3, Math.abs(_w2.x)), (s.yR - s.yB) / 2 / Math.max(1e-3, Math.abs(_w2.y)), s.L / 2 / Math.max(1e-3, Math.abs(_w2.z)));
     _w1.set(_w2.x * t, cy + _w2.y * t, _w2.z * t);
-    const amt = 0.13 + 0.035 * A.r;
-    car.lat.impact(_w1.x, _w1.y, _w1.z, -_w2.x, -_w2.y, -_w2.z, amt, 0.7);
-    car.wreckImpact(0.3, _w1, null);
+    const amt = 0.07 + 0.02 * A.r;
+    car.lat.impact(_w1.x, _w1.y, _w1.z, -_w2.x, -_w2.y, -_w2.z, amt, 0.65);
+    car.wreckImpact(0.2, _w1, null);
     const g = car.parts.filter(q => (q.type === 'glass' || q.type === 'light') && !q.broken);
     if (g.length) car.breakPart(g[Math.floor(Math.random() * g.length)]);
     const pa = car.parts.filter(q => q.attached && q.detachAt);
-    if (pa.length && Math.random() < 0.4) car.detachPart(pa[Math.floor(Math.random() * pa.length)]);
+    if (pa.length && Math.random() < 0.25) car.detachPart(pa[Math.floor(Math.random() * pa.length)]);
     v.scale(0.9, v);
     if (car.airTime > 0.1) car.airStab = 0;
     // lascas
@@ -7908,12 +7918,12 @@ Object.assign(Car.prototype, {
     _by.copy(H.n);
     _bx.crossVectors(_by, _bz).normalize();
     _bm.makeBasis(_bx, _by, _bz); _bq.setFromRotationMatrix(_bm);
-    _bq2.setFromAxisAngle(M.spinAx, M.t * (2.2 + 3 * u)); _bq.multiply(_bq2);
+    _bq2.setFromAxisAngle(M.spinAx, M.t * (1.6 + 1.6 * u)); _bq.multiply(_bq2);
     // nariz para o buraco
     _bz.copy(H.e1).multiplyScalar(-c).addScaledVector(H.e2, -s).normalize();
     _bx.crossVectors(H.n, _bz).normalize(); _by.crossVectors(_bz, _bx);
     _bm.makeBasis(_bx, _by, _bz); _bq2.setFromRotationMatrix(_bm);
-    _q1.setFromAxisAngle(_v2.set(0, 0, 1), M.t * (1.5 + 7 * u)); _bq2.multiply(_q1);
+    _q1.setFromAxisAngle(_v2.set(0, 0, 1), M.t * (1.2 + 3.2 * u)); _bq2.multiply(_q1);
     _bq.slerp(_bq2, smooth01((u - 0.4) / 0.25));
     if (kb < 1) _bq.copy(_bq2.copy(M.q0).slerp(_bq, kb));
     b.quaternion.set(_bq.x, _bq.y, _bq.z, _bq.w);
@@ -7929,27 +7939,27 @@ Object.assign(Car.prototype, {
   bhWreck(h, u) {
     const M = this.bhM, s = this.spec, say = (k, a) => { if (!M.said[k]) { M.said[k] = true; if (this.onBH) this.onBH(k, a); } };
     M.acc += h;
-    const every = lerp(0.2, 0.07, u);
+    const every = lerp(0.24, 0.1, u);
     while (M.acc > every) {
       M.acc -= every;
       const px = rr(-1, 1) * s.W / 2, py = rr(s.yB, s.yR), pz = rr(-1, 1) * s.L / 2;
       _v3.set(-Math.sign(px) * rr(0.4, 1), rr(-0.7, 0.3), Math.sign(pz) * rr(0.1, 0.8) * (u > 0.45 ? 1 : 0.3)).normalize();
-      this.lat.impact(px, py, pz, _v3.x, _v3.y, _v3.z, 0.05 + 0.32 * u, 0.6 + 0.4 * u);
+      this.lat.impact(px, py, pz, _v3.x, _v3.y, _v3.z, 0.03 + 0.13 * u, 0.5 + 0.3 * u);
     }
-    if (u > 0.12) {
+    if (u > 0.08) {
       M.accG += h;
-      if (M.accG > 0.3) { M.accG = 0; const g = this.parts.filter(q => (q.type === 'glass' || q.type === 'light') && !q.broken); if (g.length) this.breakPart(g[Math.floor(Math.random() * g.length)]); }
+      if (M.accG > 0.35) { M.accG = 0; const g = this.parts.filter(q => (q.type === 'glass' || q.type === 'light') && !q.broken); if (g.length) this.breakPart(g[Math.floor(Math.random() * g.length)]); }
     }
-    if (u > 0.2 && !this.fire.on) this.ignite('bh');
-    if (u > 0.26) {
+    if (u > 0.16 && !this.fire.on) this.ignite('bh');
+    if (u > 0.22) {
       M.accP += h;
-      if (M.accP > 0.5) { M.accP = 0; const p = this.parts.filter(q => q.attached && q.detachAt); if (p.length) { this.detachPart(p[Math.floor(Math.random() * p.length)]); say('parts'); } }
+      if (M.accP > 0.6) { M.accP = 0; const p = this.parts.filter(q => q.attached && q.detachAt); if (p.length) this.detachPart(p[Math.floor(Math.random() * p.length)]); }
     }
     const att = this.wheels.filter(w => w.attached);
-    if (att.length && u > 0.3 + M.wheel * 0.09) { M.wheel++; this.detachWheel(att[Math.floor(Math.random() * att.length)]); }
-    if (u > 0.6) say('spaghetti');
-    if (u > 0.72 && !this.tank.boom) { this.tank.leak = true; this.tankBoom(); }
-    if (u > 0.84 && !this.bhDone) { this.bhDone = true; this.computeDamage(); }
+    if (att.length && u > 0.32 + M.wheel * 0.11) { M.wheel++; this.detachWheel(att[Math.floor(Math.random() * att.length)]); }
+    if (u > 0.74 && !this.tank.boom) { this.tank.leak = true; this.tankBoom(); }
+    if (u > 0.8) say('spaghetti');
+    if (u > 0.9 && !this.bhDone) { this.bhDone = true; this.computeDamage(); }
   },
   bhSwallow() {
     const H = BHOLE, b = this.body;
@@ -8065,7 +8075,7 @@ function mrBHPhysics(car, run, h) {
     if (b.position.y < c.y - 650 || r > 3000) { removeDyn(o); continue; }
     const w = smooth01((H.Rinf - r) / (H.Rinf - H.Rfull));
     if (w <= 0) continue;
-    const a = Math.min(H.aMax, H.GM / (r * r)) * w, m = b.mass;
+    const a = Math.min(r < H.Rcap * 1.3 ? 900 : H.aMax, H.GM / (r * r)) * w, m = b.mass;
     b.force.x += dx / r * a * m; b.force.y += (dy / r * a + GRAV * w) * m; b.force.z += dz / r * a * m;
   }
   if (run.takeoff && !car.bhM && !car.bhGone && GAME.state === 'run') {
@@ -8150,19 +8160,28 @@ function mrBHCam(c, dt, P, car, portrait) {
   const H = BHOLE;
   if (car.bhM) {
     const u = car.bhM.u, V = car.body.velocity;
+    // base que gira junto com o carro: R = do buraco para o carro, T = sentido do movimento, N = normal do disco
     _v1.copy(P).sub(H.c); const y = _v1.dot(H.n); _v1.addScaledVector(H.n, -y);
     const rd = Math.max(1, _v1.length()); _v1.multiplyScalar(1 / rd);
-    // "para trás" = contra a velocidade do carro no plano do disco
     _v2.set(V.x, V.y, V.z); _v2.addScaledVector(H.n, -_v2.dot(H.n));
-    if (_v2.lengthSq() < 1) _v2.crossVectors(_v1, H.n); _v2.normalize();
-    const back = lerp(12, 7.5, u) * (portrait ? 1.3 : 1), out = lerp(8, 4.5, u), up = lerp(5, 3, u);
-    _cp.set(0, 0, 0).addScaledVector(_v2, -back).addScaledVector(_v1, out).addScaledVector(H.n, up);
-    if (!c.bhOff) c.bhOff = c.pos.clone().sub(P);
-    c.bhOff.lerp(_cp, 1 - Math.exp(-dt * 3));
-    c.pos.copy(P).add(c.bhOff);
-    c.look.copy(P).lerp(H.c, 0.1 + 0.2 * u);
+    if (_v2.lengthSq() < 1) _v2.crossVectors(H.n, _v1); _v2.normalize();
+    // a câmera é suavizada nas coordenadas dessa base (no mundo ela ficava para trás com o carro
+    // girando rápido e o carro saía da tela): fora da curva, um pouco atrás e acima
+    const D = lerp(10, 8, u) * (car.spec.L / 4.5) * (portrait ? 1.65 : 1);
+    if (!c.bhL) {
+      _cp.copy(c.pos).sub(P);
+      _cl.copy(c.look).sub(P);
+      c.bhL = { r: _cp.dot(_v1), t: _cp.dot(_v2), n: _cp.dot(H.n), lr: _cl.dot(_v1), lt: _cl.dot(_v2), ln: _cl.dot(H.n) };
+    }
+    const L = c.bhL, k = 1 - Math.exp(-dt * 2.6), kl = 1 - Math.exp(-dt * 4);
+    L.r += (D * 0.7 - L.r) * k; L.t += (-D * 0.5 - L.t) * k; L.n += (D * 0.52 - L.n) * k;
+    // olha um pouco para o lado do buraco (só na tela deitada): o buraco aparece atrás do carro
+    const lk = portrait ? 0 : 2.6;
+    L.lr += (-lk - L.lr) * kl; L.lt += (0 - L.lt) * kl; L.ln += (0 - L.ln) * kl;
+    c.pos.copy(P).addScaledVector(_v1, L.r).addScaledVector(_v2, L.t).addScaledVector(H.n, L.n);
+    c.look.copy(P).addScaledVector(_v1, L.lr).addScaledVector(_v2, L.lt).addScaledVector(H.n, L.ln);
   } else {
-    c.bhOff = null;
+    c.bhL = null;
     if (c.bhA == null) c.bhA = Math.atan2(c.pos.x - H.c.x, c.pos.z - H.c.z);
     c.bhA += dt * 0.12 + (c.orbitDrag || 0); c.orbitDrag = (c.orbitDrag || 0) * 0.88;
     const R = H.Rh * 7.5 * (portrait ? 1.4 : 1);
@@ -8252,8 +8271,8 @@ function mrStretch() {
   if (!car) return;
   const M = car.bhM;
   if (!M) { if (!car.bhGone && car.root.scale.z !== 1) car.root.scale.set(1, 1, 1); return; }
-  const u = M.u, k = smooth01((u - 0.55) / 0.4), sh = 1 - smooth01((u - 0.9) / 0.1);
-  car.root.scale.set((1 - 0.58 * k) * sh + 0.001, (1 - 0.5 * k) * sh + 0.001, (1 + 2.6 * k) * sh + 0.001);
+  const u = M.u, k = smooth01((u - 0.78) / 0.16), sh = 1 - smooth01((u - 0.93) / 0.07);
+  car.root.scale.set((1 - 0.32 * k) * sh + 0.001, (1 - 0.28 * k) * sh + 0.001, (1 + 1.3 * k) * sh + 0.001);
 }
 
 /* ---------- sons ---------- */
@@ -8704,7 +8723,7 @@ function setLoadMsg(t) { const el = $('loadMsg'); if (el) el.textContent = t; }
    Ao abrir e ao voltar para o app, lê version.txt. Se a versão publicada for outra, recarrega
    num endereço novo (?v=...) para não usar a cópia guardada no celular. No meio da corrida
    espera voltar para um menu. Ao publicar: aumente APP_VER aqui e o número em version.txt. */
-const APP_VER = '5.1';
+const APP_VER = '5.2';
 const UPD = { pending: null, busy: false, last: 0 };
 const UPD_MENU = ['title', 'garage', 'levels', 'records', 'ramp', 'megasel'];
 function updOn() { return /^https?:$/.test(location.protocol) && !/claude|anthropic/i.test(location.hostname); }
@@ -9228,7 +9247,7 @@ function updateRampFx(dt) {
 
 // fila: várias palavras ao mesmo tempo saem uma depois da outra (e o excesso é descartado)
 let _coNext = 0;
-const CALL_QUIET_BH = new Set(['FOGO!', 'VIDRO!', 'O MOTOR SAIU!', 'PNEU FURADO!', '100%!', 'CAPOTOU!']);
+const CALL_QUIET_BH = new Set(['FOGO!', 'VIDRO!', 'O MOTOR SAIU!', 'PNEU FURADO!', '100%!', 'CAPOTOU!', 'PEDAÇOS!']);
 function callout(text, cls) {
   const c = GAME.car;
   if (c && (c.bhM || c.bhGone) && (CALL_QUIET_BH.has(text) || CALL_WORDS.includes(text))) return;
@@ -9245,7 +9264,7 @@ function calloutNow(text, cls) {
   el.className = 'callout ' + (cls || '');
   el.textContent = text;
   let x = 50, y = 40;
-  if (car && (car.bhM || car.bhGone)) y = 30; // na espiral do buraco negro: sempre no meio, em cima
+  if (car && (car.bhM || car.bhGone)) y = innerHeight > innerWidth ? 26 : 15; // na espiral do buraco negro: no alto da tela (o carro fica no meio)
   else if (car) {
     _v1.copy(car.root.position).project(camera);
     if (_v1.z < 1) { x = clamp((_v1.x * 0.5 + 0.5) * 100, 18, 82); y = clamp((-_v1.y * 0.5 + 0.5) * 100 - 12, 16, 62); }
@@ -9293,7 +9312,7 @@ function liveScore(run, car, dt) {
   }
   run.pts = scoreOf(run.dmgMax, run.dist, run.liveHits, run.diamond, run.tgt).total;
   run.pendT -= dt;
-  if (run.pend >= 1 && run.pendT <= 0) { popPoints(run.pend); run.pend = 0; run.pendT = 0.45; }
+  if (run.pend >= 1 && run.pendT <= 0) { popPoints(run.pend); run.pend = 0; run.pendT = car.bhM ? 1.1 : 0.45; }
 }
 function popPoints(n, gem) {
   const car = GAME.car;
@@ -9301,7 +9320,8 @@ function popPoints(n, gem) {
   el.className = 'pop-pts' + (gem ? ' big' : '');
   el.innerHTML = (gem ? '<span class="gem-ico">' + GEM_SVG + '</span> ' : '') + '+' + fmt(n);
   let x = 50, y = 46;
-  if (car) {
+  if (car && (car.bhM || car.bhGone)) { x = gem ? 50 : 13 + rr(-2, 2); y = gem ? 30 : 54 + rr(-4, 4); }
+  else if (car) {
     _v1.copy(car.root.position).project(camera);
     if (_v1.z < 1) { x = clamp((_v1.x * 0.5 + 0.5) * 100 + rr(-7, 7), 14, 86); y = clamp((-_v1.y * 0.5 + 0.5) * 100 + 4, 24, 72); }
   }
@@ -9410,7 +9430,7 @@ function updateRun(dt, sdt) {
     run.takeoff = true; run.takeoffT = run.t; AUDIO.whoosh();
     // dica das primeiras vezes: no ar a seta gira o carro
     const rh = Number(Store.get('rollHint', 0)) || 0;
-    if (rh < 3 && !car.trick) { Store.set('rollHint', rh + 1); const tp = $('tip'); tp.textContent = 'No ar: segure a seta para girar o carro!'; tp.style.opacity = '1'; run.tipT = run.t + 2.8; }
+    if (rh < 3 && !car.trick && info.mr !== 'bh') { Store.set('rollHint', rh + 1); const tp = $('tip'); tp.textContent = 'No ar: segure a seta para girar o carro!'; tp.style.opacity = '1'; run.tipT = run.t + 2.8; }
   }
   if (run.takeoff && !run.landed && !car.bhM && !car.bhGone) {
     if (Number.isFinite(p.z)) run.dist = Math.max(0, p.z - run.lipZ);
@@ -9636,6 +9656,7 @@ function renderRecords() {
 
 /* ---------- câmera ---------- */
 const _cp = new THREE.Vector3(), _cl = new THREE.Vector3(), _ch = new THREE.Vector3();
+const _cOff = new THREE.Vector3();
 function updateCamera(dt) {
   const c = GAME.cam, car = GAME.car, run = GAME.run;
   const P = car.root.position;
@@ -9689,7 +9710,15 @@ function updateCamera(dt) {
     _cl.copy(P).addScaledVector(c.heading, air ? 6 - 4 * fk : 3.5); _cl.y = P.y + (air ? 0.2 : 0.8);
     const info = GAME.info;
     if (info && info.mega && !air && !landed) _cl.y += clamp(v.y / Math.max(1, car.speed), -0.6, 0.3) * 10;
-    c.pos.lerp(_cp, 1 - Math.exp(-dt * (air ? 4.5 + car.speed * 0.06 : 6 + car.speed * 0.14)));
+    if (info && info.mr && air) {
+      // Mega Rampa: no voo a 300+ km/h a câmera segue presa ao carro (antes ficava 20 m para trás)
+      if (!c.airOff) c.airOff = c.pos.clone().sub(P);
+      c.airOff.lerp(_cOff.copy(_cp).sub(P), 1 - Math.exp(-dt * 4));
+      c.pos.copy(P).add(c.airOff);
+    } else {
+      c.airOff = null;
+      c.pos.lerp(_cp, 1 - Math.exp(-dt * (air ? 4.5 + car.speed * 0.06 : 6 + car.speed * 0.14)));
+    }
     c.look.lerp(_cl, 1 - Math.exp(-dt * 10));
     if (info && info.mega && run && !run.takeoff) {
       const yS = info.megaP.yAtZ(c.pos.z);
@@ -9756,6 +9785,8 @@ function updateHUD() {
   $('hDist').textContent = (deck ? Math.max(0, Math.round(GAME.info.megaP.remainAtZ(car.body.position.z))) : Math.round(run.dist)) + ' m';
   const air = run.takeoff && !run.landed && GAME.state === 'run' && !run.bhCap;
   $('air').hidden = !air;
+  const cine = !!run.bhCap;
+  if (run._cine !== cine) { run._cine = cine; $('hud').classList.toggle('cine', cine); }
   const rollUI = air && !(car.trick && car.trick.state === 'on');
   if (run._rollUI !== rollUI) { run._rollUI = rollUI; $('hud').classList.toggle('inair', rollUI); }
   if (air) $('hAir').textContent = Math.round(run.dist) + ' m';
@@ -10383,6 +10414,7 @@ window.__RR = {
   MEGA_RAMPS, startMega, mrProfile, BG, BHOLE, EARTH, buildMegaGrid, pickMega, renderWorld: () => renderWorld(),
   camera: () => camera, scene: () => scene, buildWheelMesh, buildCarVisual, CARMAT,
   render() { renderWorld(); },
+  hud() { if (GAME.run) updateHUD(); },
   photo(px, py, pz, lx, ly, lz, fov) {
     if (fov) camera.fov = fov;
     camera.clearViewOffset();
