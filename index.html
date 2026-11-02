@@ -567,7 +567,7 @@ h2 { margin: 0; text-wrap: balance; }
   </section>
 
   <section id="sLevels" class="screen levels" hidden>
-    <header class="bar"><button class="btn ghost" id="bLBack">‹ Garagem</button><h2>Fases</h2><span class="bar-r"><span class="total" id="lTotal">0/50</span><button class="icon-btn" id="bLRec" aria-label="Recordes"></button></span></header>
+    <header class="bar"><button class="btn ghost" id="bLBack">‹ Garagem</button><h2>Fases</h2><span class="bar-r"><span class="total" id="lTotal">0/50</span><button class="icon-btn" id="bLHome" aria-label="Tela inicial"></button><button class="icon-btn" id="bLRec" aria-label="Recordes"></button></span></header>
     <div class="grid" id="lGrid"></div>
   </section>
 
@@ -578,7 +578,7 @@ h2 { margin: 0; text-wrap: balance; }
   </section>
 
   <section id="sMegaSel" class="screen ramps megasel" hidden>
-    <header class="bar"><button class="btn ghost" id="bMsBack">‹ Garagem</button><h2>Mega Rampa</h2><span class="bar-r"><button class="icon-btn" id="bMsRec" aria-label="Recordes"></button></span></header>
+    <header class="bar"><button class="btn ghost" id="bMsBack">‹ Garagem</button><h2>Mega Rampa</h2><span class="bar-r"><button class="icon-btn" id="bMsHome" aria-label="Tela inicial"></button><button class="icon-btn" id="bMsRec" aria-label="Recordes"></button></span></header>
     <div class="mega-grid" id="msGrid" role="group" aria-label="Escolha a mega rampa"></div>
     <button class="btn big go" id="bMsGo"><span class="rp-pick" id="msPick">Planeta Terra</span>VAI!</button>
   </section>
@@ -600,7 +600,7 @@ h2 { margin: 0; text-wrap: balance; }
         <div id="rTgtBox"><span>Alvo</span><b id="rTgt">—</b><em id="rTgtWhy"></em></div>
       </div>
       <div class="r-btns"><button class="btn" id="bRetry">De novo</button><button class="btn go" id="bNextLvl">Próxima fase</button></div>
-      <div class="r-links"><button class="btn ghost" id="bRCar">Trocar carro</button><button class="btn ghost" id="bRLevels">Fases</button></div>
+      <div class="r-links"><button class="btn ghost" id="bRCar">Trocar carro</button><button class="btn ghost" id="bRLevels">Fases</button><button class="btn ghost" id="bRHome">Início</button></div>
     </div></div>
   </section>
 
@@ -611,6 +611,7 @@ h2 { margin: 0; text-wrap: balance; }
       <button class="btn" id="bRestart">Recomeçar fase</button>
       <button class="btn" id="bPLevels">Escolher fase</button>
       <button class="btn" id="bPCar">Trocar carro</button>
+      <button class="btn" id="bPHome">Tela inicial</button>
     </div></div>
   </section>
 
@@ -8360,7 +8361,7 @@ function mrLabels() {
   const mega = GAME.mode === 'mega';
   $('bRestart').textContent = mega ? 'Recomeçar' : 'Recomeçar fase';
   $('bPLevels').textContent = mega ? 'Escolher mega rampa' : 'Escolher fase';
-  $('bRLevels').textContent = mega ? 'Início' : 'Fases';
+  $('bRLevels').textContent = mega ? 'Mega Rampas' : 'Fases';
 }
 
 /* ---------- fim da rodada (Mega Rampa) ---------- */
@@ -8591,6 +8592,7 @@ function gemSVG(shine) {
     '<path d="M30 20l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="#fff"/></svg>';
 }
 const GEM_SVG = gemSVG(false);
+const HOME_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11.2L12 4l8.5 7.2" fill="none" stroke="#14171c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.8 10v9.5h4.6v-5.2h3.2v5.2h4.6V10" fill="#48c2f0" stroke="#14171c" stroke-width="1.8" stroke-linejoin="round"/></svg>';
 const TROPHY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5H4v2A3.5 3.5 0 0 0 7.6 10M17 4.5h3v2A3.5 3.5 0 0 1 16.4 10" fill="none" stroke="#14171c" stroke-width="2" stroke-linecap="round"/><path d="M6.5 3h11v4.5a5.5 5.5 0 0 1-11 0z" fill="#ffc21a" stroke="#14171c" stroke-width="1.6" stroke-linejoin="round"/><path d="M10.5 12.8h3v3.4h-3z" fill="#ffc21a" stroke="#14171c" stroke-width="1.4"/><path d="M7.5 16.5h9V21h-9z" fill="#ffc21a" stroke="#14171c" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 5v2.5a3 3 0 0 0 2 2.8" fill="none" stroke="#fff8e7" stroke-width="1.3" stroke-linecap="round" opacity="0.8"/></svg>';
 const JUMP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 21h10l-10-6.5z" fill="#ff5a1f" stroke="#14171c" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 13.5Q14.5 1 21.5 17" fill="none" stroke="#48c2f0" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="2.6 2.4"/><path d="M21.5 17.5l-.6-4M21.5 17.5l-3.6-1.8" stroke="#48c2f0" stroke-width="2.2" stroke-linecap="round"/></svg>';
 const fmt = (n) => String(Math.max(0, Math.round(n))).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -8727,7 +8729,7 @@ function setLoadMsg(t) { const el = $('loadMsg'); if (el) el.textContent = t; }
    Ao abrir e ao voltar para o app, lê version.txt. Se a versão publicada for outra, recarrega
    num endereço novo (?v=...) para não usar a cópia guardada no celular. No meio da corrida
    espera voltar para um menu. Ao publicar: aumente APP_VER aqui e o número em version.txt. */
-const APP_VER = '5.3';
+const APP_VER = '5.4';
 const UPD = { pending: null, busy: false, last: 0 };
 const UPD_MENU = ['title', 'garage', 'levels', 'records', 'ramp', 'megasel'];
 function updOn() { return /^https?:$/.test(location.protocol) && !/claude|anthropic/i.test(location.hostname); }
@@ -8800,6 +8802,7 @@ function boot(hot) {
   scene.remove(GEM3D.group);
   initGarage();
   $('tRecIco').innerHTML = TROPHY_SVG; $('bLRec').innerHTML = TROPHY_SVG; $('bMsRec').innerHTML = TROPHY_SVG;
+  $('bLHome').innerHTML = HOME_SVG; $('bMsHome').innerHTML = HOME_SVG;
   { const paint = '#' + new THREE.Color(carPaint(GAME.carIdx)).getHexString(); $('mArtN').innerHTML = artSVG('classic', paint); $('mArtM').innerHTML = mrModeArt(); }
   $('sL').insertAdjacentHTML('beforeend', rotArrowSVG(false)); $('sR').insertAdjacentHTML('beforeend', rotArrowSVG(true));
   $('recIcoGem').innerHTML = GEM_SVG; $('recIcoTro').innerHTML = TROPHY_SVG; $('recIcoJump').innerHTML = JUMP_SVG;
@@ -9904,7 +9907,12 @@ function bindUI() {
   on('bRpBack', () => setState('levels'));
   on('bRampGo', () => startLevel(GAME.pendingLevel));
   on('bRCar', () => { clearLevel(); setState('garage'); });
-  on('bRLevels', () => { clearLevel(); setState(GAME.mode === 'mega' ? 'title' : 'levels'); });
+  on('bRLevels', () => { clearLevel(); setState(GAME.mode === 'mega' ? 'megasel' : 'levels'); });
+  // volta para a primeira tela (escolha do modo)
+  on('bRHome', () => { clearLevel(); setState('title'); });
+  on('bPHome', () => { clearLevel(); setState('title'); });
+  on('bLHome', () => setState('title'));
+  on('bMsHome', () => setState('title'));
   on('bPause', () => pauseGame());
   on('bResume', () => resumeGame());
   on('bRestart', () => { if (GAME.mode === 'mega') startMega(GAME.megaIdx); else startLevel(GAME.levelIdx); });
