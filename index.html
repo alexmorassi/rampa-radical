@@ -1207,7 +1207,7 @@ const RAY_HIT = { t: 0, n: new THREE.Vector3(), kind: '' };
 function rayStatic(o, d, maxT, cands) {
   let best = maxT, hit = false, kind = '';
   // plano do chão
-  if (o.y <= 0 && o.y > -0.8) { if (!inLake(o.x, o.z)) { best = 0; hit = true; _rn.set(0, 1, 0); kind = 'ground'; } }
+  if (o.y <= 0 && o.y > -0.8) { if (!inLake(o.x, o.z) && !(o.y < -0.13 && inLakeWall(o.x, o.z))) { best = 0; hit = true; _rn.set(0, 1, 0); kind = 'ground'; } }
   else if (d.y < -1e-6) {
     const t = -o.y / d.y;
     if (t >= 0 && t < best && !inLake(o.x + d.x * t, o.z + d.z * t)) { best = t; hit = true; _rn.set(0, 1, 0); kind = 'ground'; }
@@ -4950,6 +4950,9 @@ Car.prototype.nightLightBroken = function (p) {
    ============================================================ */
 const LAKE = { on: false, x0: -22, x1: 22, z0: 0, z1: 0, y: -0.35, depth: 8, planes: null, clipMats: [], puddles: [], ripples: [], fish: [], weeds: null, water: null, t: 0, fog: null };
 const inLake = (x, z) => LAKE.on && x > LAKE.x0 && x < LAKE.x1 && z > LAKE.z0 && z < LAKE.z1;
+// faixa das paredes do lago (embaixo do chão em volta do buraco): ali quem segura o carro são as paredes
+const LAKE_WALL = 1.5;
+const inLakeWall = (x, z) => LAKE.on && x > LAKE.x0 - LAKE_WALL && x < LAKE.x1 + LAKE_WALL && z > LAKE.z0 - LAKE_WALL && z < LAKE.z1 + LAKE_WALL;
 // quanto cada tipo de objeto boia (empuxo / peso com tudo submerso): > 1 boia, < 1 afunda
 const BUOY = { crate: 2.2, plank: 2.4, barrel: 1.9, boom: 1.9, tire: 1.6, cone: 1.4, hay: 1.8, wheel: 1.35, part: 0.55, junk: 0.5, container: 0.5, bus: 0.5, block: 0.4 };
 const _lq = new THREE.Quaternion(), _lv = new THREE.Vector3(), _li = new CANNON.Vec3(), _lp = new CANNON.Vec3();
@@ -4978,7 +4981,7 @@ function lakeReset() {
 }
 // paredes e fundo do lago (o plano do chão não conta dentro do lago: ver lakeFilterContacts e rayStatic)
 function lakeBasin() {
-  const D = LAKE.depth, x0 = LAKE.x0, x1 = LAKE.x1, z0 = LAKE.z0, z1 = LAKE.z1, t = 1.5;
+  const D = LAKE.depth, x0 = LAKE.x0, x1 = LAKE.x1, z0 = LAKE.z0, z1 = LAKE.z1, t = LAKE_WALL;
   const box = (ax, bx, ay, by, az, bz) => addStaticBox((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2, (bx - ax) / 2, (by - ay) / 2, (bz - az) / 2, null, 'ground');
   const top = -0.12;
   box(x0, x1, -D - 1, -D, z0, z1);
@@ -4996,7 +4999,8 @@ function lakeFilterContacts(C, F, cPool, fPool) {
     const c = C[i];
     if (c.bi === g || c.bj === g) {
       const o = c.bi === g ? c.bj : c.bi, r = c.bi === g ? c.rj : c.ri;
-      if (inLake(o.position.x + r.x, o.position.z + r.z)) { c._drop = true; _ldrop.push(c); continue; }
+      const px = o.position.x + r.x, py = o.position.y + r.y, pz = o.position.z + r.z;
+      if (inLake(px, pz) || (py < -0.13 && inLakeWall(px, pz))) { c._drop = true; _ldrop.push(c); continue; }
     }
     C[w++] = c;
   }
@@ -8723,7 +8727,7 @@ function setLoadMsg(t) { const el = $('loadMsg'); if (el) el.textContent = t; }
    Ao abrir e ao voltar para o app, lê version.txt. Se a versão publicada for outra, recarrega
    num endereço novo (?v=...) para não usar a cópia guardada no celular. No meio da corrida
    espera voltar para um menu. Ao publicar: aumente APP_VER aqui e o número em version.txt. */
-const APP_VER = '5.2';
+const APP_VER = '5.3';
 const UPD = { pending: null, busy: false, last: 0 };
 const UPD_MENU = ['title', 'garage', 'levels', 'records', 'ramp', 'megasel'];
 function updOn() { return /^https?:$/.test(location.protocol) && !/claude|anthropic/i.test(location.hostname); }
