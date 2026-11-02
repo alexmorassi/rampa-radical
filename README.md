@@ -1,8 +1,15 @@
 # Rampa Radical
 
-Jogo infantil de destruição de carros para celular: pegue velocidade, salte da rampa e destrua o carro nos obstáculos. Dois modos: **Normal** (13 fases, 7 carros, 6 rampas) e **Mega Rampa** (Planeta Terra, Buraco Negro, Vulcão e Redemoinho). Feito com Three.js e cannon.js.
+Jogo infantil de destruição de carros para celular: pegue velocidade, salte da rampa e destrua o carro nos obstáculos. Dois modos: **Normal** (13 fases, 7 carros, 6 rampas) e **Mega Rampa** (Planeta Terra, Buraco Negro, Vulcão, Redemoinho e Esgoto). Feito com Three.js e cannon.js.
 
 **Jogar:** https://alexmorassi.github.io/rampa-radical/
+
+## Mega Rampas
+- **Planeta Terra**: desce do espaço até a Terra, com mega queda e estrada de ondas.
+- **Buraco Negro**: o carro é sugado, gira em volta e é engolido.
+- **Vulcão**: salto para dentro da cratera; a lava derrete o carro e a erupção cospe o que sobrou.
+- **Redemoinho**: o redemoinho gigante no mar engole o carro e, no fundo, o megalodon e o mosassauro comem tudo.
+- **Esgoto**: largada numa chaminé, cano gigante, cachoeira de esgoto e salto no piscinão de gosma; o ralo engole e o cano de saída cospe no rio.
 
 ## Instalar no celular
 Abra o link no navegador e use "Adicionar à Tela de Início" (iPhone: botão Compartilhar; Android: menu ⋮). O jogo abre em tela cheia com o ícone do Rampa Radical.

@@ -231,6 +231,7 @@ h2 { margin: 0; text-wrap: balance; }
 .r-pts b { font-family: var(--font-display); font-weight: 400; font-size: clamp(30px, 8vw, 42px); line-height: 1; color: var(--hazard); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 0 4px 0 var(--ink); font-variant-numeric: tabular-nums; }
 .r-break { font-size: 12px; font-weight: 800; color: var(--muted); min-height: 1.2em; font-variant-numeric: tabular-nums; text-align: center; }
 .r-rec { font-size: 13px; font-weight: 800; color: var(--muted); min-height: 1.3em; text-align: center; }
+.r-note { font-size: 13px; font-weight: 800; color: #b8ff4a; text-align: center; line-height: 1.25; margin: -2px 6px 2px; }
 .r-rec.new { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 1px; border-radius: 999px; border: 2px solid var(--ink); background: var(--hazard); color: var(--ink); font-family: var(--font-display); font-weight: 400; font-size: 15px; letter-spacing: 0.04em; animation: stamp 0.45s cubic-bezier(.2, 1.8, .4, 1) both; }
 .r-rec.new.top { background: var(--signal); color: var(--chalk); }
 @keyframes stamp { 0% { transform: scale(2.2) rotate(-12deg); opacity: 0; } 100% { transform: scale(1) rotate(-3deg); opacity: 1; } }
@@ -481,10 +482,10 @@ h2 { margin: 0; text-wrap: balance; }
 }
 
 /* ---------- escolha da Mega Rampa ---------- */
-.mega-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; width: min(1220px, 100%); padding: 10px 4px 12px; flex: 0 1 auto; min-height: 0; }
+.mega-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; width: min(1400px, 100%); padding: 10px 4px 12px; flex: 0 1 auto; min-height: 0; }
 .mcard .ramp-art { background: #050a18; }
-.mcard .ramp-txt b { font-size: clamp(18px, 3vw, 28px); }
-.mcard .ramp-txt span { font-size: 14px; }
+.mcard .ramp-txt b { font-size: clamp(16px, 2.3vw, 26px); }
+.mcard .ramp-txt span { font-size: 13px; }
 .mcard .mc-rec { font-style: normal; font-size: 12px; font-weight: 800; color: var(--hazard); min-height: 1.2em; }
 #bMsGo { display: inline-flex; align-items: center; gap: 12px; }
 @media (max-aspect-ratio: 5/4) {
@@ -492,7 +493,7 @@ h2 { margin: 0; text-wrap: balance; }
   .mcard .ramp-art { width: min(46%, 200px); }
 }
 @media (max-height: 460px) {
-  .mega-grid { gap: 10px; padding-top: 6px; padding-bottom: 6px; width: min(1000px, 100%); }
+  .mega-grid { gap: 8px; padding-top: 6px; padding-bottom: 6px; width: min(1100px, 100%); }
   .mcard .ramp-txt span { font-size: 12px; }
 }
 /* nuvens: tela branca rápida ao atravessar */
@@ -538,7 +539,7 @@ h2 { margin: 0; text-wrap: balance; }
     <div class="t-bottom">
       <div class="modes" role="group" aria-label="Escolha o modo de jogo">
         <button class="mode" id="bModeN" style="--rc:#ffc21a" aria-label="Modo normal: 13 fases com rampas e obstáculos"><span class="m-art" id="mArtN"></span><span class="m-txt"><b>NORMAL</b><span>13 fases com rampas</span></span></button>
-        <button class="mode" id="bModeM" style="--rc:#c07bff" aria-label="Modo mega rampa: Planeta Terra, Buraco Negro, Vulcão e Redemoinho"><span class="m-art" id="mArtM"></span><span class="m-txt"><b>MEGA RAMPA</b><span>Terra, Buraco Negro, Vulcão e Redemoinho</span></span></button>
+        <button class="mode" id="bModeM" style="--rc:#c07bff" aria-label="Modo mega rampa: Planeta Terra, Buraco Negro, Vulcão, Redemoinho e Esgoto"><span class="m-art" id="mArtM"></span><span class="m-txt"><b>MEGA RAMPA</b><span>Terra, Buraco Negro, Vulcão, Redemoinho e Esgoto</span></span></button>
       </div>
       <button class="btn rec" id="bRecords"><span class="tro-ico" id="tRecIco"></span>RECORDES<span class="cnt" id="tGemCnt" hidden></span></button>
       <p class="hint" id="rotHint" hidden>Gire o celular para jogar deitado.</p>
@@ -599,6 +600,7 @@ h2 { margin: 0; text-wrap: balance; }
         <div id="rHitsBox"><span>Derrubou</span><b id="rHits">0</b></div>
         <div id="rTgtBox"><span>Alvo</span><b id="rTgt">—</b><em id="rTgtWhy"></em></div>
       </div>
+      <div class="r-note" id="rNote" hidden></div>
       <div class="r-btns"><button class="btn" id="bRetry">De novo</button><button class="btn go" id="bNextLvl">Próxima fase</button></div>
       <div class="r-links"><button class="btn ghost" id="bRCar">Trocar carro</button><button class="btn ghost" id="bRLevels">Fases</button><button class="btn ghost" id="bRHome">Início</button></div>
     </div></div>
@@ -2727,9 +2729,9 @@ class Car {
     this.wreckB = wb;
     this.destroyPct = Math.min(100, Math.floor(100 * clamp((raw + wb) / (this.fullK || this.spec.full || DESTROY_FULL), 0, 1) + 0.5));
     // o tubarão do lago comeu o carro inteiro
-    if (this.sharkDone || this.bhDone || this.lavaDone || this.whirlDone) { this.destroyPct = 100; this.damagePct = 100; }
+    if (this.sharkDone || this.bhDone || this.lavaDone || this.whirlDone || this.gooDone) { this.destroyPct = 100; this.damagePct = 100; }
     // na espiral do buraco negro (e afundando na lava) o 100% fica para o fim
-    else if (this.bhM || this.lavaM || this.whirlM) this.destroyPct = Math.min(this.destroyPct, 96);
+    else if (this.bhM || this.lavaM || this.whirlM || this.gooM) this.destroyPct = Math.min(this.destroyPct, 96);
   }
 
   // 100%: o que ainda resta se desmancha (vidros estouram, painéis voam um a um)
@@ -3315,6 +3317,8 @@ const AUDIO = {
     if (this.plG) this.plG.gain.setTargetAtTime(0, t, 0.05);
     if (this.rbG) this.rbG.gain.setTargetAtTime(0, t, 0.1);
     if (this.seG) this.seG.gain.setTargetAtTime(0, t, 0.1);
+    if (this.goG) this.goG.gain.setTargetAtTime(0, t, 0.1);
+    if (this.flG) this.flG.gain.setTargetAtTime(0, t, 0.1);
   },
   crash(k, kind) {
     k = clamp(k, 0.05, 1);
@@ -4161,6 +4165,7 @@ const THEMES = {
   space:    { top: 0x07051a, hor: 0x2a1640, sun: 0xffe2c4, sunI: 1.5, hemiS: 0x7a68b0, hemiG: 0x1a1024, hemiI: 0.5, fog: 0x05040c, dir: [0.35, 0.7, -0.62], exp: 1.08, grass: 0x333333, fogNear: 1e5, fogFar: 2e5 },
   volcano:  { top: 0x140716, hor: 0xb8471f, sun: 0xffa060, sunI: 1.55, hemiS: 0xffa878, hemiG: 0x2a1410, hemiI: 0.78, fog: 0x6a2616, dir: [-0.35, 0.5, -0.8], exp: 1.05, grass: 0x444444, fogNear: 1500, fogFar: 7500 },
   sea:      { top: 0x2a6fc9, hor: 0xc9e6f5, sun: 0xfff3dc, sunI: 2.0, hemiS: 0xd2ecff, hemiG: 0x2b6578, hemiI: 0.8, fog: 0xc9e6f5, dir: [0.5, 0.7, 0.5], exp: 1.0, grass: 0xffffff, fogNear: 2000, fogFar: 9500 },
+  esgoto:   { top: 0x7c7a58, hor: 0xb8a674, sun: 0xffe3a6, sunI: 1.3, hemiS: 0xcfc39a, hemiG: 0x3b3226, hemiI: 0.75, fog: 0xa4946a, dir: [0.4, 0.58, -0.7], exp: 1.0, grass: 0xffffff, fogNear: 260, fogFar: 3200 },
   night:    { top: 0x03060f, hor: 0x16234a, sun: 0xe8eeff, sunI: 0.5, hemiS: 0x3b4f8f, hemiG: 0x0c0f16, hemiI: 0.42, fog: 0x0a1228, dir: [-0.32, 0.62, 0.62], exp: 1.15, grass: 0x55657e, night: true, fogNear: 70, fogFar: 560 },
 };
 
@@ -6729,6 +6734,8 @@ const MEGA_RAMPS = [
     tip: 'Pule dentro do vulcão em erupção! Toque no NITRO para ir mais rápido.' },
   { id: 'whirl', name: 'Redemoinho', sub: 'Monstros no fundo do mar!', abbr: 'R', col: '#2fe0b8', mega: true, turbo: 48, fullK: 1, lipY: 55, W: 12, wallH: 2.6,
     tip: 'Caia no redemoinho gigante! Lá no fundo do mar tem monstros.' },
+  { id: 'esgoto', name: 'Esgoto', sub: 'Mergulhe na gosma!', abbr: 'E', col: '#9be22c', mega: true, turbo: 48, fullK: 1, lipY: 42, W: 12, wallH: 2.6,
+    tip: 'Desça da chaminé, passe pelo cano e mergulhe na gosma! Guarde o NITRO para o salto final.' },
 ];
 const MR = { tp: {}, tex: {}, mats: {} };
 
@@ -6749,6 +6756,17 @@ function mrPieces(id) {
     { L: 200, a: -14 },
     { L: 470, a: -14, waves: { A: 0.4, lam: 72 } },
     { L: 230, a: 14 },
+  ];
+  if (id === 'esgoto') return [
+    { L: 26, a: 0 },
+    { L: 90, a: -34 },
+    { L: 300, a: -34 },
+    { L: 130, a: -14 },
+    { L: 70, a: -14 },
+    { gap: 'drop', v: 84 },
+    { L: 150, a: -14 },
+    { L: 250, a: -14, waves: { A: 0.4, lam: 72 } },
+    { L: 230, a: 13 },
   ];
   if (id === 'whirl') return [
     { L: 26, a: 0 },
@@ -6957,6 +6975,15 @@ function mrDeckTex(id) {
     g.fillStyle = '#f5f2e8'; g.fillRect(0, 0, 14, 256); g.fillRect(498, 0, 14, 256);
     g.fillStyle = '#ffc21a'; g.fillRect(18, 0, 7, 256); g.fillRect(487, 0, 7, 256);
     g.fillStyle = 'rgba(245,242,232,0.75)'; for (let y = 0; y < 256; y += 64) { g.fillRect(126, y, 8, 34); g.fillRect(378, y, 8, 34); }
+  } else if (id === 'esgoto') {
+    g.fillStyle = '#34362e'; g.fillRect(0, 0, 512, 256);
+    noiseFill(g, 512, 256, 0, 16, 341, 2);
+    g.fillStyle = 'rgba(155,226,44,0.16)'; for (let i = 0; i < 9; i++) { g.beginPath(); g.ellipse(40 + i * 53, 60 + (i % 3) * 60, 18, 10, i, 0, TAU); g.fill(); }
+    g.fillStyle = '#9be22c'; for (const y of [40, 168]) mrChevron(g, 256, y, 60, 48, 18);
+    g.fillStyle = '#ffc21a'; g.fillRect(0, 0, 12, 256); g.fillRect(500, 0, 12, 256);
+    g.fillStyle = '#14171c'; for (let y = 0; y < 256; y += 32) { g.fillRect(0, y, 12, 16); g.fillRect(500, y + 16, 12, 16); }
+    g.fillStyle = '#7ac21e'; g.fillRect(16, 0, 6, 256); g.fillRect(490, 0, 6, 256);
+    g.fillStyle = 'rgba(210,255,150,0.6)'; for (let y = 0; y < 256; y += 64) { g.fillRect(126, y, 8, 34); g.fillRect(378, y, 8, 34); }
   } else if (id === 'whirl') {
     g.fillStyle = '#123c55'; g.fillRect(0, 0, 512, 256);
     noiseFill(g, 512, 256, 0, 12, 331, 1);
@@ -7032,14 +7059,15 @@ function mrNoiseTex() {
 /* ---------- visual da pista ---------- */
 function mrStyle(id) {
   if (MR.mats[id]) return MR.mats[id];
-  const earth = id === 'earth', vol = id === 'volcano', wh = id === 'whirl';
-  const pick = (a, b, c, d) => (earth ? a : vol ? c : wh ? d : b);
+  // cores por mega rampa: [Terra, Buraco Negro, Vulcão, Redemoinho, Esgoto]
+  const k = { earth: 0, bh: 1, volcano: 2, whirl: 3, esgoto: 4 }[id] || 0;
+  const pick = (...c) => c[k] != null ? c[k] : c[0];
   const M = {
     deck: new THREE.MeshStandardMaterial({ map: mrDeckTex(id), roughness: 0.6, metalness: 0.15 }),
-    side: new THREE.MeshStandardMaterial({ color: pick(0xe9edf2, 0x2a1b48, 0x4a3a34, 0xeef4f6), roughness: 0.5, metalness: 0.35, side: THREE.DoubleSide }),
-    under: new THREE.MeshStandardMaterial({ color: pick(0x59657a, 0x1d1233, 0x3a2c27, 0x3d5866), roughness: 0.55, metalness: 0.6, side: THREE.DoubleSide }),
-    neon: new THREE.MeshBasicMaterial({ color: pick(0x5ee7ff, 0xff4fd8, 0xff7a1a, 0x5ff2e0), toneMapped: false }),
-    neon2: new THREE.MeshBasicMaterial({ color: pick(0xffc21a, 0x3ee6ff, 0xffc21a, 0xffc21a), toneMapped: false }),
+    side: new THREE.MeshStandardMaterial({ color: pick(0xe9edf2, 0x2a1b48, 0x4a3a34, 0xeef4f6, 0x5a5f52), roughness: 0.5, metalness: 0.35, side: THREE.DoubleSide }),
+    under: new THREE.MeshStandardMaterial({ color: pick(0x59657a, 0x1d1233, 0x3a2c27, 0x3d5866, 0x4a4a40), roughness: 0.55, metalness: 0.6, side: THREE.DoubleSide }),
+    neon: new THREE.MeshBasicMaterial({ color: pick(0x5ee7ff, 0xff4fd8, 0xff7a1a, 0x5ff2e0, 0x9be22c), toneMapped: false }),
+    neon2: new THREE.MeshBasicMaterial({ color: pick(0xffc21a, 0x3ee6ff, 0xffc21a, 0xffc21a, 0xffc21a), toneMapped: false }),
     wall: null, lamp: null,
   };
   {
@@ -7048,9 +7076,9 @@ function mrStyle(id) {
     gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.08, 'rgba(255,255,255,0.35)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.08)'); gr.addColorStop(1, 'rgba(255,255,255,0.4)');
     g.fillStyle = gr; g.fillRect(0, 0, 4, 64);
     const t = canvasTex(c, { clamp: true }); t.userData.shared = true;
-    M.wall = new THREE.MeshBasicMaterial({ map: t, color: pick(0x5ee7ff, 0xc07bff, 0xff6a1a, 0x5ff2e0), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+    M.wall = new THREE.MeshBasicMaterial({ map: t, color: pick(0x5ee7ff, 0xc07bff, 0xff6a1a, 0x5ff2e0, 0x9be22c), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
   }
-  M.lamp = new THREE.PointsMaterial({ map: mrGlowTex(), color: pick(0xbff6ff, 0xff9cf0, 0xffc27a, 0xc8fff6), size: 3.2, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+  M.lamp = new THREE.PointsMaterial({ map: mrGlowTex(), color: pick(0xbff6ff, 0xff9cf0, 0xffc27a, 0xc8fff6, 0xd8ff9a), size: 3.2, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
   for (const k in M) M[k].userData.shared = true;
   return (MR.mats[id] = M);
 }
@@ -7410,7 +7438,7 @@ function bgUse(kind) {
   bgEnsure();
   for (const k in BG.sets) { BG.sets[k].follow.visible = BG.sets[k].world.visible = k === kind; }
   if (!BG.sets[kind]) {
-    const S = BG.sets[kind] = kind === 'earth' ? bgBuildEarth() : kind === 'volcano' ? bgBuildVolcano() : kind === 'whirl' ? bgBuildWhirl() : bgBuildBH();
+    const S = BG.sets[kind] = MR_DEF[kind].bg();
     BG.scene.add(S.follow); BG.scene.add(S.world);
     S.follow.traverse(o => { if (o.material) o.material.userData.shared = true; if (o.geometry) o.geometry.userData.shared = true; });
     S.world.traverse(o => { if (o.material) o.material.userData.shared = true; if (o.geometry) o.geometry.userData.shared = true; });
@@ -9225,7 +9253,7 @@ function onCarWhirl(ev, n) {
 /* ---------- o carro no redemoinho: gira descendo pelo funil, é engolido e afunda até os monstros ---------- */
 Object.assign(Car.prototype, {
   // carro preso numa cena (buraco negro, lava, redemoinho): sem física normal
-  mrBusy() { return !!(this.bhM || this.bhGone || this.lavaM || this.lavaGone || this.whirlM || this.whirlGone); },
+  mrBusy() { return !!(this.bhM || this.bhGone || this.lavaM || this.lavaGone || this.whirlM || this.whirlGone || this.gooM || this.gooGone); },
   whirlStart() {
     const W = WHIRL, b = this.body, p = b.position, v = b.velocity;
     // a água freia o carro: ele ainda escorrega uns metros para onde estava indo
@@ -9779,23 +9807,1017 @@ function mrWhirlSVG(uid) {
 }
 
 /* ============================================================
+   Mega Rampa do Esgoto (v7.0, pedido do usuário): largada no alto de uma chaminé,
+   descida por dentro de um cano gigante, cachoeira de esgoto por cima do rio
+   poluído e salto no piscinão de gosma da estação de esgoto. Na gosma o carro
+   afunda, o ralo abre e engole, e o cano de saída cospe o que sobrou no rio.
+   Humor de desenho animado ("ECA!"): gosma verde, lixo, ratinhos de capacete
+   ============================================================ */
+const ESG = { c: new THREE.Vector3(0, 0, 400), RL: 70, yG: 3.2, wallH: 4.4, yR: 0.14, t: 0, g: null, vortex: 0, cull: 0, hazT: 0,
+  rv: null, out: new THREE.Vector3(), outV: new THREE.Vector3(), splash: new THREE.Vector3(), dump: new THREE.Vector3(-120, 0, -560),
+  pipe: null, fx: [], haz: [], rats: [], birds: [], trash: [], pops: [], chim: [], spill: [], spin: [], aAcc: 0, fAcc: 0, sAcc: 0, dAcc: 0 };
+
+/* ---------- rio poluído: uma curva no chão (passa embaixo da cachoeira e ao lado da estação) ---------- */
+function esgRiver(zW, zc) {
+  const pts = [[-3200, zW - 160], [-1400, zW - 40], [-500, zW + 30], [0, zW], [260, zW + 160], [340, zW + 520], [330, zc - 200], [330, zc + 160], [380, zc + 700], [700, zc + 2600]]
+    .map(([x, z]) => new THREE.Vector3(x, 0, z));
+  const cv = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+  const n = 520, P = [], T = [], L = [0];
+  for (let i = 0; i <= n; i++) { P.push(cv.getPointAt(i / n)); T.push(cv.getTangentAt(i / n)); if (i) L.push(L[i - 1] + P[i].distanceTo(P[i - 1])); }
+  // meio do rio mais perto de (x, z): índice, distância e de que lado
+  const near = (x, z) => {
+    let bi = 0, bd = 1e18;
+    for (let i = 0; i <= n; i += 2) { const dx = P[i].x - x, dz = P[i].z - z, d = dx * dx + dz * dz; if (d < bd) { bd = d; bi = i; } }
+    return { i: bi, d: Math.sqrt(bd) };
+  };
+  return { cv, P, T, L, n, len: L[n], W: 100, near };
+}
+function esgInRiver(x, z, m = 0) { const R = ESG.rv; if (!R) return false; return R.near(x, z).d < R.W / 2 + m; }
+
+/* ---------- texturas ---------- */
+// chão sujo: terra, grama seca e manchas
+function esgGroundTex() {
+  if (MR.tex.eground) return MR.tex.eground;
+  const S = 256, c = makeCanvas(S, S), g = c.getContext('2d');
+  g.fillStyle = '#7a6d4c'; g.fillRect(0, 0, S, S);
+  const rnd = mulberry32(707);
+  for (let i = 0; i < 160; i++) {
+    const k = rnd();
+    g.fillStyle = k < 0.35 ? 'rgba(96,104,52,0.35)' : k < 0.7 ? 'rgba(58,48,32,0.28)' : 'rgba(150,135,95,0.25)';
+    g.beginPath(); g.ellipse(rnd() * S, rnd() * S, 6 + rnd() * 28, 4 + rnd() * 18, rnd() * 3, 0, TAU); g.fill();
+  }
+  noiseFill(g, S, S, 0, 30, 708, 2);
+  const t = canvasTex(c); t.userData.shared = true;
+  return (MR.tex.eground = t);
+}
+// metal enferrujado do cano gigante: placas, rebites, ferrugem e gosma escorrendo
+function esgPipeTex() {
+  if (MR.tex.epipe) return MR.tex.epipe;
+  const W = 256, H = 256, c = makeCanvas(W, H), g = c.getContext('2d');
+  g.fillStyle = '#6b6f63'; g.fillRect(0, 0, W, H);
+  noiseFill(g, W, H, 0, 26, 711, 2);
+  const rnd = mulberry32(712);
+  for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(${rnd() < 0.6 ? '140,82,40' : '70,52,40'},${(0.18 + rnd() * 0.3).toFixed(2)})`; g.beginPath(); g.ellipse(rnd() * W, rnd() * H, 5 + rnd() * 30, 4 + rnd() * 18, rnd() * 3, 0, TAU); g.fill(); }
+  g.strokeStyle = 'rgba(30,32,28,0.8)'; g.lineWidth = 3;
+  for (const y of [0, 128]) { g.beginPath(); g.moveTo(0, y + 1); g.lineTo(W, y + 1); g.stroke(); }
+  for (const x of [0, 128]) { g.beginPath(); g.moveTo(x + 1, 0); g.lineTo(x + 1, H); g.stroke(); }
+  g.fillStyle = '#2b2d28';
+  for (let x = 8; x < W; x += 16) for (const y of [6, 134]) { g.beginPath(); g.arc(x, y, 2.2, 0, TAU); g.fill(); }
+  // gosma verde escorrendo
+  for (let i = 0; i < 7; i++) {
+    const x = rnd() * W, w = 4 + rnd() * 7, h = 40 + rnd() * 150;
+    g.fillStyle = 'rgba(120,200,40,0.75)'; g.fillRect(x, 0, w, h);
+    g.beginPath(); g.arc(x + w / 2, h, w * 0.75, 0, TAU); g.fill();
+  }
+  const t = canvasTex(c); t.userData.shared = true;
+  return (MR.tex.epipe = t);
+}
+// água do rio: marrom-esverdeada, correndo, com espuma e manchas de óleo de arco-íris
+function esgRiverMat() {
+  if (MR.mats.eriver) return MR.mats.eriver;
+  const u = THREE.UniformsUtils.merge([THREE.UniformsLib.fog]);
+  Object.assign(u, { uT: { value: 0 }, uN: { value: mrNoiseTex() } });
+  const m = new THREE.ShaderMaterial({
+    uniforms: u, fog: true,
+    vertexShader: 'varying vec2 vU; varying vec3 vW;\n#include <fog_pars_vertex>\nvoid main(){ vU = uv; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}',
+    fragmentShader: 'uniform float uT; uniform sampler2D uN; varying vec2 vU; varying vec3 vW;\n#include <fog_pars_fragment>\n' +
+      'void main(){ vec2 q = vec2(vU.x * 1.4, vU.y / 46.0 - uT * 0.05);\n' +
+      ' float n1 = texture2D(uN, q).r, n2 = texture2D(uN, q * 2.3 + vec2(0.4, -uT * 0.03)).r, n3 = texture2D(uN, vW.xz / 90.0 + vec2(uT * 0.004, 0.0)).r;\n' +
+      ' vec3 col = mix(vec3(0.19, 0.21, 0.09), vec3(0.29, 0.31, 0.13), n1);\n' +
+      // manchas de óleo (poucas, com arco-íris suave) e espuma correndo
+      ' float oil = smoothstep(0.64, 0.78, n3) * 0.65;\n' +
+      ' vec3 rb = 0.5 + 0.5 * cos(6.2832 * (n3 * 1.3 + uT * 0.02 + vec3(0.0, 0.33, 0.67)));\n' +
+      ' col = mix(col, rb * 0.5 + 0.22, oil);\n' +
+      ' float edge = smoothstep(0.36, 0.5, abs(vU.x - 0.5));\n' +
+      ' float foam = smoothstep(0.64, 0.84, n2) * 0.5 + edge * smoothstep(0.42, 0.7, n1) * 0.7;\n' +
+      ' col = mix(col, vec3(0.8, 0.78, 0.6), clamp(foam, 0.0, 1.0));\n' +
+      ' vec3 V = normalize(cameraPosition - vW); float fr = pow(1.0 - max(V.y, 0.0), 4.0);\n' +
+      ' col = mix(col, vec3(0.75, 0.7, 0.5), fr * 0.4);\n' +
+      ' gl_FragColor = vec4(col, 1.0);\n#include <fog_fragment>\n}',
+  });
+  m.userData.shared = true;
+  return (MR.mats.eriver = m);
+}
+// gosma do piscinão: verde borbulhando com redemoinhos; o ralo abre um vórtice escuro no meio
+function esgGooMat() {
+  if (MR.mats.egoo) return MR.mats.egoo;
+  const u = THREE.UniformsUtils.merge([THREE.UniformsLib.fog]);
+  Object.assign(u, { uT: { value: 0 }, uN: { value: mrNoiseTex() }, uC: { value: new THREE.Vector2() }, uR: { value: 70 }, uV: { value: 0 }, uSun: { value: new THREE.Vector3(0.4, 0.6, -0.7).normalize() } });
+  const m = new THREE.ShaderMaterial({
+    uniforms: u, fog: true,
+    vertexShader: 'varying vec3 vW;\n#include <fog_pars_vertex>\nvoid main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}',
+    fragmentShader: 'uniform float uT; uniform sampler2D uN; uniform vec2 uC; uniform float uR; uniform float uV; uniform vec3 uSun; varying vec3 vW;\n#include <fog_pars_fragment>\n' +
+      'void main(){ vec2 d = vW.xz - uC; float r = length(d) / uR;\n' +
+      // o ralo gira tudo em volta do meio (mais forte perto do buraco)
+      ' float sw = uV * (2.2 / (r + 0.12)) * uT * 0.6; float cs = cos(sw), sn = sin(sw);\n' +
+      ' vec2 p = mat2(cs, -sn, sn, cs) * d / 34.0;\n' +
+      ' float n1 = texture2D(uN, p + vec2(uT * 0.012, uT * 0.008)).r, n2 = texture2D(uN, p * 2.4 - vec2(uT * 0.02, -uT * 0.013)).r;\n' +
+      ' vec3 col = mix(vec3(0.28, 0.52, 0.09), vec3(0.5, 0.74, 0.14), smoothstep(0.25, 0.75, n1));\n' +
+      ' col = mix(col, vec3(0.24, 0.3, 0.08), smoothstep(0.55, 0.85, n2) * 0.6);\n' +
+      // bolhas brilhando
+      ' float b = texture2D(uN, d / 7.0 + vec2(0.0, uT * 0.05)).r; col += vec3(0.5, 0.7, 0.2) * smoothstep(0.78, 0.84, b) * (1.0 - smoothstep(0.84, 0.9, b));\n' +
+      // brilho molhado
+      ' vec3 N = normalize(vec3(n1 - 0.5, 1.6, n2 - 0.5)); vec3 V = normalize(cameraPosition - vW);\n' +
+      ' col += vec3(1.0, 1.0, 0.85) * pow(max(dot(reflect(-uSun, N), V), 0.0), 40.0) * 0.6;\n' +
+      // vórtice: espuma em espiral e o buraco escuro
+      ' float arm = sin(atan(d.y, d.x) * 3.0 + log(r + 0.02) * 6.0 - uT * 7.0) * 0.5 + 0.5;\n' +
+      ' col = mix(col, vec3(0.82, 0.9, 0.6), uV * smoothstep(0.65, 0.95, arm) * smoothstep(0.75, 0.15, r) * 0.7);\n' +
+      ' col = mix(col, vec3(0.04, 0.06, 0.02), uV * (1.0 - smoothstep(0.05, 0.16 + 0.04 * uV, r)));\n' +
+      ' gl_FragColor = vec4(col, 1.0);\n#include <fog_fragment>\n}',
+  });
+  m.userData.shared = true;
+  return (MR.mats.egoo = m);
+}
+// cachoeira de esgoto (e o jato do cano de saída): faixa que escorre
+function esgFallMat() {
+  if (MR.mats.efall) return MR.mats.efall;
+  const u = THREE.UniformsUtils.merge([THREE.UniformsLib.fog]);
+  Object.assign(u, { uT: { value: 0 }, uN: { value: mrNoiseTex() } });
+  const m = new THREE.ShaderMaterial({
+    uniforms: u, fog: true, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: 'varying vec2 vU;\n#include <fog_pars_vertex>\nvoid main(){ vU = uv; vec4 w = modelMatrix * vec4(position, 1.0); vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}',
+    fragmentShader: 'uniform float uT; uniform sampler2D uN; varying vec2 vU;\n#include <fog_pars_fragment>\n' +
+      'void main(){ float n = texture2D(uN, vec2(vU.x * 1.6, vU.y / 22.0 - uT * 0.9)).r, n2 = texture2D(uN, vec2(vU.x * 3.1 + 0.3, vU.y / 9.0 - uT * 1.7)).r;\n' +
+      ' vec3 col = mix(vec3(0.36, 0.42, 0.14), vec3(0.6, 0.78, 0.2), n);\n' +
+      ' col = mix(col, vec3(0.88, 0.9, 0.7), smoothstep(0.62, 0.86, n2) * 0.8);\n' +
+      ' float a = (1.0 - smoothstep(0.36, 0.5, abs(vU.x - 0.5))) * (0.72 + 0.28 * n2);\n' +
+      ' gl_FragColor = vec4(col, a);\n#include <fog_fragment>\n}',
+  });
+  m.userData.shared = true;
+  return (MR.mats.efall = m);
+}
+// faixa ao longo de uma lista de pontos (centro, direção "de lado" e largura)
+function esgRibbon(C, S, w0, w1, vlen) {
+  const A = [], B = [], uA = [], uB = [];
+  let v = 0;
+  for (let i = 0; i < C.length; i++) {
+    if (i) v += C[i].distanceTo(C[i - 1]);
+    const w = lerp(w0, w1, i / (C.length - 1)) / 2;
+    A.push(C[i].clone().addScaledVector(S[i], -w)); B.push(C[i].clone().addScaledVector(S[i], w));
+    uA.push([0, v / (vlen || 1)]); uB.push([1, v / (vlen || 1)]);
+  }
+  return stripGeo(A, B, uA, uB);
+}
+
+/* ---------- chão, rio, margens e lixo boiando ---------- */
+function esgGround(parent) {
+  const E = ESG, R = E.rv;
+  const gt = esgGroundTex().clone(); gt.needsUpdate = true; gt.repeat.set(320, 320);
+  const gm = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshStandardMaterial({ map: gt, color: 0x7a705c, roughness: 1, envMapIntensity: 0.5 }));
+  gm.rotation.x = -Math.PI / 2; gm.position.set(0, 0, E.c.z - 1500); gm.receiveShadow = true; parent.add(gm);
+  // rio: margens de lama e a água por cima
+  const C = [], S = [], up = _v1.set(0, 1, 0);
+  for (let i = 0; i <= R.n; i++) { C.push(new THREE.Vector3(R.P[i].x, E.yR, R.P[i].z)); S.push(new THREE.Vector3().crossVectors(R.T[i], up).normalize()); }
+  const mud = new THREE.Mesh(esgRibbon(C.map(p => p.clone().setY(0.07)), S, R.W + 26, R.W + 26), mrMat('emud', () => new THREE.MeshStandardMaterial({ color: 0x4a3b26, roughness: 1 })));
+  mud.receiveShadow = true; parent.add(mud);
+  const water = new THREE.Mesh(esgRibbon(C, S, R.W, R.W, 1), esgRiverMat()); water.receiveShadow = false; parent.add(water);
+  // lixo boiando (pneus, garrafas e sacolas) descendo o rio
+  const tireG = new THREE.TorusGeometry(0.62, 0.26, 6, 12).rotateX(Math.PI / 2), botG = new THREE.CylinderGeometry(0.16, 0.16, 0.8, 7).rotateZ(Math.PI / 2), bagG = new THREE.SphereGeometry(0.55, 8, 6).scale(1, 0.45, 0.8);
+  const kinds = [[tireG, 0x1d1d1f, LOW_END ? 10 : 18], [botG, 0x5fa8d8, LOW_END ? 10 : 18], [bagG, 0xe8e8e2, LOW_END ? 8 : 14]];
+  E.trash.length = 0;
+  const rnd = mulberry32(731);
+  for (const [geo, col, n] of kinds) {
+    const im = new THREE.InstancedMesh(geo, mrMat('etrash' + col, () => new THREE.MeshStandardMaterial({ color: col, roughness: 0.6 })), n);
+    im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); parent.add(im);
+    const L = [];
+    for (let i = 0; i < n; i++) L.push({ s: rnd() * R.len, off: (rnd() - 0.5) * R.W * 0.8, sp: 2 + rnd() * 2.5, ph: rnd() * 6, yaw: rnd() * 6 });
+    E.trash.push({ im, L });
+  }
+  E.water = water;
+}
+function esgTrashStep(dt) {
+  const E = ESG, R = E.rv;
+  for (const T of E.trash) {
+    for (let i = 0; i < T.L.length; i++) {
+      const o = T.L[i];
+      o.s = (o.s + o.sp * dt) % R.len;
+      let lo = 0, hi = R.n; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (R.L[m] < o.s) lo = m; else hi = m; }
+      const p = R.P[lo], tg = R.T[lo];
+      _v1.set(-tg.z, 0, tg.x).normalize();
+      _v2.set(p.x + _v1.x * o.off, E.yR + 0.08 + 0.06 * Math.sin(E.t * 2 + o.ph), p.z + _v1.z * o.off);
+      _q1.setFromEuler(_we.set(0.15 * Math.sin(E.t * 1.3 + o.ph), o.yaw + E.t * 0.2, 0.1 * Math.cos(E.t * 1.7 + o.ph)));
+      T.im.setMatrixAt(i, _m1.compose(_v2, _q1, _v3.set(1, 1, 1)));
+    }
+    T.im.instanceMatrix.needsUpdate = true;
+  }
+}
+
+/* ---------- cano gigante em volta da pista (só desenho), luzes, canos menores, grades e gosma pingando ---------- */
+function esgPipe(parent, TP, s0, s1, fx) {
+  const E = ESG, dk = TP.decks[0], Rp = 10, off = 4.6, N = 12, step = 6;
+  const pts = [];
+  for (let s = s0; s <= s1 + 0.01; s += step) {
+    const p = mrAtS(TP, Math.min(s, s1)), a = p.a;
+    pts.push({ s, z: p.z, y: p.y, a, cy: p.y + Math.cos(a) * off, cz: p.z - Math.sin(a) * off });
+  }
+  // casca do cano (por dentro e por fora)
+  const pos = [], uv = [], idx = [];
+  pts.forEach((P, i) => {
+    const ny = Math.cos(P.a), nz = -Math.sin(P.a);
+    for (let j = 0; j <= N; j++) {
+      const f = j / N * TAU, cf = Math.cos(f), sf = Math.sin(f);
+      pos.push(cf * Rp, P.cy + sf * Rp * ny, P.cz + sf * Rp * nz);
+      uv.push(j / N * 4, (P.s - s0) / 10);
+    }
+    if (i) for (let j = 0; j < N; j++) { const a = (i - 1) * (N + 1) + j, b = a + N + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const pm = mrMat('epipe', () => new THREE.MeshStandardMaterial({ map: esgPipeTex(), color: 0xc8cdbd, roughness: 0.75, metalness: 0.25, side: THREE.DoubleSide, emissive: 0x1c2414, emissiveIntensity: 0.6 }));
+  const shell = new THREE.Mesh(g, pm); shell.castShadow = true; shell.receiveShadow = true; parent.add(shell);
+  // anéis por fora (reforço), lâmpadas no teto, grades e pingos de gosma por dentro
+  const ringG = new THREE.TorusGeometry(Rp + 0.4, 0.55, 6, 18), ringM = mrMat('epring', () => new THREE.MeshStandardMaterial({ color: 0x4d5148, roughness: 0.6, metalness: 0.5 }));
+  const nRing = Math.floor((s1 - s0) / 24) + 2, rings = new THREE.InstancedMesh(ringG, ringM, nRing);
+  const lampP = [], drips = [], grates = [];
+  let ri = 0;
+  for (let k = 0; k < nRing; k++) {
+    const P = pts[Math.min(pts.length - 1, Math.round(k * 24 / step))];
+    _q1.setFromAxisAngle(_v1.set(1, 0, 0), -P.a);
+    rings.setMatrixAt(ri++, _m1.compose(_v2.set(0, P.cy, P.cz), _q1, _v3.set(k === 0 || k === nRing - 1 ? 1.12 : 1, k === 0 || k === nRing - 1 ? 1.12 : 1, k === 0 || k === nRing - 1 ? 3 : 1)));
+  }
+  rings.count = ri; rings.castShadow = true; parent.add(rings);
+  for (let i = 1; i < pts.length; i += 3) {
+    const P = pts[i], ny = Math.cos(P.a), nz = -Math.sin(P.a);
+    lampP.push(0, P.cy + ny * (Rp - 0.6), P.cz + nz * (Rp - 0.6));
+    for (const sx of [-1, 1]) if ((i + (sx > 0 ? 1 : 0)) % 2) { const x = sx * rr(1.5, 5), hh = Math.sqrt(Rp * Rp - x * x) - 0.9; drips.push([x, P.cy + ny * hh, P.cz + nz * hh, P.a]); }
+    if (i % 5 === 1) for (const sx of [-1, 1]) grates.push([sx * 9.3, P.cy + ny * 3.4, P.cz + nz * 3.4, P.a, sx]);
+  }
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lampP, 3));
+  const lamps = new THREE.Points(lg, mrMat('eplamp', () => new THREE.PointsMaterial({ map: mrGlowTex(), color: 0xfff0a0, size: 4.5, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })));
+  lamps.frustumCulled = false; parent.add(lamps);
+  const dripG = new THREE.SphereGeometry(0.35, 8, 6).scale(1, 2.2, 1).translate(0, -0.6, 0), dripM = mrMat('edrip', () => new THREE.MeshStandardMaterial({ color: 0x7ad62a, emissive: 0x3f8a10, emissiveIntensity: 0.9, roughness: 0.25 }));
+  const dr = new THREE.InstancedMesh(dripG, dripM, drips.length);
+  drips.forEach(([x, y, z, a], i) => { _q1.setFromAxisAngle(_v1.set(1, 0, 0), -a); dr.setMatrixAt(i, _m1.compose(_v2.set(x, y, z), _q1, _v3.set(1, rr(0.7, 1.4), 1))); });
+  parent.add(dr);
+  const grG = new THREE.BoxGeometry(0.3, 2.6, 3.2), grM = mrMat('egrate', () => new THREE.MeshStandardMaterial({ color: 0x24271f, roughness: 0.6, metalness: 0.6 }));
+  const gr = new THREE.InstancedMesh(grG, grM, grates.length);
+  grates.forEach(([x, y, z, a], i) => { _q1.setFromAxisAngle(_v1.set(1, 0, 0), -a); gr.setMatrixAt(i, _m1.compose(_v2.set(x, y, z), _q1, _v3.set(1, 1, 1))); });
+  parent.add(gr);
+  // dois canos finos correndo pela parede de dentro
+  for (const [ang, rad, col] of [[0.55, 0.7, 0x8a5a32], [Math.PI - 0.55, 0.55, 0x3d6a8a]]) {
+    const tp = [], ti = [], M = 6;
+    pts.forEach((P, i) => {
+      const ny = Math.cos(P.a), nz = -Math.sin(P.a), cx = Math.cos(ang) * (Rp - rad - 0.25), cyo = Math.sin(ang) * (Rp - rad - 0.25);
+      for (let j = 0; j <= M; j++) { const f = j / M * TAU; tp.push(cx + Math.cos(f) * rad, P.cy + (cyo + Math.sin(f) * rad) * ny, P.cz + (cyo + Math.sin(f) * rad) * nz); }
+      if (i) for (let j = 0; j < M; j++) { const a = (i - 1) * (M + 1) + j, b = a + M + 1; ti.push(a, b, a + 1, a + 1, b, b + 1); }
+    });
+    const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3)); tg.setIndex(ti); tg.computeVertexNormals();
+    parent.add(new THREE.Mesh(tg, mrMat('etube' + col, () => new THREE.MeshStandardMaterial({ color: col, roughness: 0.5, metalness: 0.4, side: THREE.DoubleSide }))));
+  }
+  E.pipe = { s0, s1, pts, Rp, off };
+}
+// a cachoeira de esgoto saindo da boca do cano e caindo no rio
+function esgFall(parent, TP) {
+  const E = ESG, d0 = TP.decks[0], z0 = d0.Z[d0.n] + 1, y0 = d0.Y[d0.n] - 3.2, vz = 15, C = [], S = [];
+  let t = 0;
+  while (true) { const y = y0 - 0.5 * GRAV * t * t, z = z0 + vz * t; C.push(new THREE.Vector3(0, Math.max(E.yR, y), z)); S.push(new THREE.Vector3(1, 0, 0)); if (y <= E.yR) break; t += 0.12; }
+  const m = new THREE.Mesh(esgRibbon(C, S, 13, 22, 1), esgFallMat()); m.renderOrder = 2; parent.add(m);
+  const S2 = C.map((p, i) => { const j = Math.min(C.length - 1, i + 1), k = Math.max(0, j - 1); return new THREE.Vector3().subVectors(C[j], C[k]).normalize().cross(_v1.set(1, 0, 0)).normalize(); });
+  const m2 = new THREE.Mesh(esgRibbon(C, S2, 8, 16, 1), esgFallMat()); m2.renderOrder = 2; parent.add(m2);
+  E.fallBase = C[C.length - 1].clone(); E.fallTop = new THREE.Vector3(0, y0, z0);
+}
+
+/* ---------- largada no alto da chaminé gigante (com fumaça), fábricas, canos, barris, árvores secas e o lixão ---------- */
+function esgChimneyGeo(h, r0, r1, bands, cs) {
+  // chaminé com faixas vermelhas e brancas no alto
+  const parts = [], nb = bands || 4, hb = Math.min(h * 0.14, 18);
+  parts.push(paintGeo(new THREE.CylinderGeometry(r1, r0, h - nb * hb, 20, 1, true).translate(0, (h - nb * hb) / 2, 0), cs || 0x8b8172));
+  for (let i = 0; i < nb; i++) {
+    const ya = h - nb * hb + i * hb, ra = lerp(r0, r1, ya / h), rb = lerp(r0, r1, (ya + hb) / h);
+    parts.push(paintGeo(new THREE.CylinderGeometry(rb, ra, hb, 20, 1, true).translate(0, ya + hb / 2, 0), i % 2 ? 0xf2efe6 : 0xc8342c));
+  }
+  parts.push(paintGeo(new THREE.TorusGeometry(r1 * 1.02, r1 * 0.06, 6, 20).rotateX(Math.PI / 2).translate(0, h, 0), 0x2a2a28));
+  return mergeGeos(parts);
+}
+function esgStation(parent, TP, fx) {
+  const E = ESG, d0 = TP.decks[0], zs = d0.Z[0], ys = d0.Y[0], W = TP.def.W;
+  const mat = mrMat('echim', () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }));
+  // a chaminé gigante embaixo da largada (a pista passa por cima da boca dela)
+  const big = new THREE.Mesh(esgChimneyGeo(ys - 1.5, 30, 17, 5), mat); big.position.set(0, 0, zs + 9); big.castShadow = true; big.receiveShadow = true; parent.add(big);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(15.5, 15.5, 1.2, 24), mrMat('esoot', () => new THREE.MeshStandardMaterial({ color: 0x1c1b19, roughness: 1 }))); top.position.set(0, ys - 2.4, zs + 9); parent.add(top);
+  E.chim.length = 0;
+  E.chim.push({ x: 0, y: ys - 1, z: zs + 9, r: 14, big: true });
+  // escadinha de serviço e luzes vermelhas de aviso na borda
+  const dark = mrMat('dark', () => new THREE.MeshStandardMaterial({ color: 0x2a2f38, roughness: 0.5, metalness: 0.6 }));
+  for (const a of [0.6, 2.2, 3.8, 5.4]) {
+    const x = Math.cos(a) * 18, z = zs + 9 + Math.sin(a) * 18;
+    const bl = new THREE.Sprite(new THREE.SpriteMaterial({ map: mrGlowTex(), color: 0xff3020, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    bl.position.set(x, ys - 1, z); bl.scale.set(6, 6, 1); parent.add(bl); fx.blink.push({ s: bl, f: 0.9 });
+  }
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 2), new THREE.MeshBasicMaterial({ map: mrSignTex('ECA!', true, '#9be22c', '#14171c'), toneMapped: false, side: THREE.DoubleSide }));
+  sign.position.set(W / 2 + 5, ys + 3.4, zs + 12); sign.rotation.y = Math.PI * 0.85; parent.add(sign);
+  for (const sx of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.4, 0.3), dark); p.position.set(W / 2 + 5 + sx * 3.2, ys + 1.6, zs + 12); parent.add(p); }
+}
+function esgIndustry(parent, TP) {
+  const E = ESG, rnd = mulberry32(741), d0 = TP.decks[0];
+  const box = [], roofs = [], chims = [], pipes = [];
+  const free = (x, z, m) => !esgInRiver(x, z, m + 20) && Math.hypot(x - E.c.x, z - E.c.z) > E.RL + 200 && Math.hypot(x - E.dump.x, z - E.dump.z) > 130 && Math.abs(x) > 40 + m;
+  let n = 0;
+  for (let i = 0; i < 500 && n < (LOW_END ? 16 : 28); i++) {
+    const side = rnd() < 0.5 ? -1 : 1, x = side * (70 + Math.pow(rnd(), 1.5) * 420), z = lerp(d0.Z[0] - 500, 150, rnd());
+    const w = 40 + rnd() * 40, d = 30 + rnd() * 30, h = 16 + rnd() * 22;
+    if (!free(x, z, Math.max(w, d) / 2)) continue;
+    n++;
+    const col = [0x7d7364, 0x6e6556, 0x857a68, 0x625a4d][n % 4];
+    box.push(paintGeo(new THREE.BoxGeometry(w, h, d).translate(x, h / 2, z), col));
+    // telhado em serrote
+    for (let k = 0; k < 4; k++) {
+      const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(d / 4, 0); s.lineTo(0, 5); s.closePath();
+      const rg = new THREE.ExtrudeGeometry(s, { depth: w, bevelEnabled: false }); rg.rotateY(Math.PI / 2); rg.translate(x - w / 2, h, z - d / 2 + k * d / 4);
+      roofs.push(paintGeo(rg, k % 2 ? 0x5d5a52 : 0x6c675c));
+    }
+    // chaminés (soltam fumaça)
+    for (let c = 0; c < 1 + (rnd() < 0.5 ? 1 : 0); c++) {
+      const ch = 50 + rnd() * 50, cr = 2.6 + rnd() * 1.6, cx = x + (rnd() - 0.5) * w * 0.6, cz = z + (rnd() - 0.5) * d * 0.6;
+      chims.push(esgChimneyGeo(ch, cr * 1.3, cr, 2).translate(cx, h * 0.5, cz));
+      E.chim.push({ x: cx, y: h * 0.5 + ch, z: cz, r: cr });
+    }
+    // canos ligando no prédio
+    if (rnd() < 0.7) { const L = 60 + rnd() * 80, py = 6 + rnd() * 8; pipes.push(paintGeo(new THREE.CylinderGeometry(1.4, 1.4, L, 10).rotateZ(Math.PI / 2).translate(x + side * (w / 2 + L / 2), py, z), 0x7a6a50)); for (let k = 0; k < L; k += 15) pipes.push(paintGeo(new THREE.BoxGeometry(0.8, py, 0.8).translate(x + side * (w / 2 + 4 + k), py / 2, z), 0x4a4540)); }
+  }
+  const mat = mrMat('efab', () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }));
+  for (const L of [box, roofs, pipes]) if (L.length) { const m = new THREE.Mesh(mergeGeos(L), mat); m.castShadow = true; m.receiveShadow = true; parent.add(m); }
+  if (chims.length) { const m = new THREE.Mesh(mergeGeos(chims), mrMat('echim', () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }))); m.castShadow = true; parent.add(m); }
+  // barris tóxicos brilhando (verde) e árvores secas
+  const nB = LOW_END ? 40 : 70, bar = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.62, 0.62, 1.8, 10), mrMat('etox', () => new THREE.MeshStandardMaterial({ color: 0x3f7a1c, emissive: 0x58ff22, emissiveIntensity: 0.55, roughness: 0.5 })), nB);
+  const glowP = [];
+  for (let i = 0, k = 0; i < 800 && k < nB; i++) {
+    const near = rnd() < 0.5 && E.rv, base = near ? E.rv.P[Math.floor(rnd() * E.rv.n)] : null;
+    const x = near ? base.x + (rnd() - 0.5) * 170 : (rnd() - 0.5) * 900, z = near ? base.z + (rnd() - 0.5) * 170 : lerp(d0.Z[0] - 300, E.c.z + 400, rnd());
+    if (esgInRiver(x, z, 4) || Math.abs(x) < 26 || Math.hypot(x - E.c.x, z - E.c.z) < E.RL + 20) continue;
+    const tip = rnd() < 0.25;
+    _q1.setFromEuler(_we.set(tip ? Math.PI / 2 : 0, rnd() * 6, 0));
+    bar.setMatrixAt(k++, _m1.compose(_v1.set(x, tip ? 0.62 : 0.9, z), _q1, _v2.set(1, 1, 1)));
+    if (!tip && k % 2) glowP.push(x, 2.2, z);
+  }
+  bar.castShadow = true; parent.add(bar);
+  const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(glowP, 3));
+  const gl = new THREE.Points(gg, mrMat('etoxglow', () => new THREE.PointsMaterial({ map: mrGlowTex(), color: 0x8bff3a, size: 7, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })));
+  gl.frustumCulled = false; parent.add(gl);
+  const tp = [paintGeo(new THREE.CylinderGeometry(0.35, 0.6, 9, 6).translate(0, 4.5, 0), 0x5a4c3e)];
+  for (const [a, b, l] of [[0.7, 0, 5], [-0.6, 2.1, 4.5], [0.5, 4.2, 4]]) tp.push(paintGeo(new THREE.CylinderGeometry(0.12, 0.22, l, 5).translate(0, l / 2, 0).rotateZ(a).rotateY(b).translate(0, 5 + b * 0.5, 0), 0x5a4c3e));
+  const nT = LOW_END ? 30 : 55, tree = new THREE.InstancedMesh(mergeGeos(tp), mrMat('etree', () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })), nT);
+  for (let i = 0, k = 0; i < 600 && k < nT; i++) {
+    const x = (rnd() - 0.5) * 1400, z = lerp(d0.Z[0] - 400, E.c.z + 600, rnd());
+    if (esgInRiver(x, z, 6) || Math.abs(x) < 30 || Math.hypot(x - E.c.x, z - E.c.z) < E.RL + 40) continue;
+    const s = 0.8 + rnd() * 0.9; _q1.setFromEuler(_we.set(rr(-0.1, 0.1), rnd() * 6, rr(-0.1, 0.1)));
+    tree.setMatrixAt(k++, _m1.compose(_v1.set(x, 0, z), _q1, _v2.set(s, s, s)));
+  }
+  tree.castShadow = true; parent.add(tree);
+}
+// lixão gigante: monte de lixo, urubus voando em volta e moscas
+function esgDump(parent) {
+  const E = ESG, D = E.dump, rnd = mulberry32(751);
+  const mg = new THREE.SphereGeometry(1, 28, 12, 0, TAU, 0, Math.PI / 2), mp = mg.attributes.position;
+  for (let i = 0; i < mp.count; i++) { const x = mp.getX(i), y = mp.getY(i), z = mp.getZ(i), k = 1 + 0.12 * Math.sin(x * 9 + z * 7) + 0.08 * Math.sin(x * 23 - z * 17); mp.setXYZ(i, x * k, y * k, z * k); }
+  mg.computeVertexNormals(); mg.scale(95, 34, 75);
+  const mound = new THREE.Mesh(mg, mrMat('edump', () => new THREE.MeshStandardMaterial({ color: 0x3a3026, roughness: 1, flatShading: true, envMapIntensity: 0.4 })));
+  mound.position.set(D.x, -2, D.z); mound.receiveShadow = true; parent.add(mound);
+  const onMound = (u, v) => { const x = u * 90, z = v * 70, k = 1 - (u * u + v * v); return k > 0 ? _v1.set(D.x + x, -2 + 34 * Math.sqrt(k) * 0.98, D.z + z) : null; };
+  const kinds = [[new THREE.BoxGeometry(2.2, 1.4, 1.6), null, LOW_END ? 30 : 55], [new THREE.TorusGeometry(0.62, 0.26, 6, 12), 0x1d1d1f, LOW_END ? 18 : 34], [new THREE.SphereGeometry(0.9, 7, 5).scale(1, 0.6, 0.8), 0xe8e8e2, LOW_END ? 16 : 30]];
+  const cols = [0xc8342c, 0x2f6fa8, 0xd9a640, 0x5a8a3a, 0x8a8a8a, 0xe86a2a];
+  for (const [geo, col, n] of kinds) {
+    const im = new THREE.InstancedMesh(geo, mrMat('ejunk' + (col || 'c'), () => new THREE.MeshStandardMaterial({ color: col || 0xffffff, roughness: 0.7 })), n);
+    for (let i = 0, k = 0; i < n * 6 && k < n; i++) {
+      const u = (rnd() - 0.5) * 2, v = (rnd() - 0.5) * 2, p = onMound(u, v);
+      if (!p) continue;
+      _q1.setFromEuler(_we.set(rnd() * 6, rnd() * 6, rnd() * 6));
+      im.setMatrixAt(k, _m1.compose(p, _q1, _v2.setScalar(0.8 + rnd() * 1.4)));
+      if (!col) im.setColorAt(k, _c1.setHex(cols[k % cols.length]));
+      k++;
+    }
+    if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    im.castShadow = true; parent.add(im);
+  }
+  // urubus
+  const bodyG = mergeGeos([paintGeo(new THREE.SphereGeometry(0.5, 8, 6).scale(0.7, 0.6, 1.6), 0x24201c), paintGeo(new THREE.SphereGeometry(0.28, 8, 6).translate(0, 0.25, 0.95), 0xc87a6a)]);
+  const wingG = paintGeo(finGeo([[0, 0.35], [2.6, 0], [0, -0.35]], 0.05).rotateX(Math.PI / 2), 0x2c2824);
+  const bm = mrMat('ebird', () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide }));
+  E.birds.length = 0;
+  for (let i = 0; i < (LOW_END ? 4 : 6); i++) {
+    const g = new THREE.Group(), b = new THREE.Mesh(bodyG, bm); g.add(b);
+    const wl = new THREE.Mesh(wingG, bm), wr = new THREE.Mesh(wingG, bm); wr.scale.x = -1; g.add(wl); g.add(wr);
+    g.scale.setScalar(2.2); parent.add(g);
+    E.birds.push({ g, wl, wr, r: 45 + rnd() * 50, h: 55 + rnd() * 55, a: rnd() * TAU, w: (0.25 + rnd() * 0.2) * (rnd() < 0.5 ? -1 : 1), ph: rnd() * 6 });
+  }
+}
+// canos sujos despejando esgoto no rio
+function esgSpills(parent) {
+  const E = ESG, R = E.rv, rnd = mulberry32(761), parts = [];
+  E.spill.length = 0;
+  for (const s of [0.18, 0.3, 0.42, 0.62, 0.8]) {
+    const i = Math.floor(s * R.n), p = R.P[i], t = R.T[i], side = rnd() < 0.5 ? -1 : 1;
+    _v1.set(-t.z, 0, t.x).normalize().multiplyScalar(side);
+    const bank = p.clone().addScaledVector(_v1, R.W / 2 + 12), mouth = p.clone().addScaledVector(_v1, R.W / 2 - 4);
+    const L = bank.distanceTo(mouth) + 10, mid = bank.clone().lerp(mouth, 0.5);
+    const cg = new THREE.CylinderGeometry(1.6, 1.6, L, 10).rotateZ(Math.PI / 2).rotateY(-Math.atan2(_v1.z, _v1.x)).translate(mid.x, 5, mid.z);
+    parts.push(paintGeo(cg, 0x6a6052));
+    E.spill.push({ p: new THREE.Vector3(mouth.x, 4.6, mouth.z), d: _v1.clone() });
+  }
+  parent.add(new THREE.Mesh(mergeGeos(parts), mrMat('efab', () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }))));
+}
+// estação de esgoto: o piscinão de gosma, tanques redondos com ponte girando, prédio e o cano de saída para o rio
+function esgPlant(parent, fx) {
+  const E = ESG, c = E.c, RL = E.RL, H = E.wallH;
+  const conc = mrMat('econc', () => { const t = TEX.concrete.clone(); t.needsUpdate = true; t.repeat.set(24, 1); return new THREE.MeshStandardMaterial({ map: t, color: 0xcfc8b8, roughness: 0.9, side: THREE.DoubleSide }); });
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(RL + 1.4, RL + 1.8, H, 72, 1, true), conc); wall.position.set(c.x, H / 2, c.z); wall.receiveShadow = true; wall.castShadow = true; parent.add(wall);
+  const inner = new THREE.Mesh(new THREE.CylinderGeometry(RL, RL, H, 72, 1, true), conc); inner.position.set(c.x, H / 2, c.z); parent.add(inner);
+  const rim = new THREE.Mesh(new THREE.RingGeometry(RL, RL + 1.5, 72), conc); rim.rotation.x = -Math.PI / 2; rim.position.set(c.x, H + 0.01, c.z); parent.add(rim);
+  const goo = new THREE.Mesh(new THREE.CircleGeometry(RL + 0.05, 80), esgGooMat()); goo.rotation.x = -Math.PI / 2; goo.position.set(c.x, E.yG, c.z); parent.add(goo);
+  const U = esgGooMat().uniforms; U.uC.value.set(c.x, c.z); U.uR.value = RL; U.uV.value = 0;
+  // faixa de aviso amarela e preta na borda e placas
+  const stripe = new THREE.Mesh(new THREE.CylinderGeometry(RL + 1.85, RL + 1.85, 0.7, 72, 1, true), mrMat('estripe', () => new THREE.MeshStandardMaterial({ map: TEX.hazard, roughness: 0.7, side: THREE.DoubleSide })));
+  stripe.position.set(c.x, H - 0.6, c.z); parent.add(stripe);
+  // tanques redondos com a ponte que gira
+  const dark = mrMat('ewater2', () => new THREE.MeshStandardMaterial({ color: 0x3a4628, roughness: 0.7, metalness: 0.1, envMapIntensity: 0.5 }));
+  const steel = mrMat('esteel', () => new THREE.MeshStandardMaterial({ color: 0xd9dcd2, roughness: 0.4, metalness: 0.5 }));
+  E.spin.length = 0;
+  for (const dz of [-1, 1]) {
+    const x = c.x - RL - 80, z = c.z + dz * 62, r = 34;
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(r + 1, r + 1.3, 3.4, 48, 1, true), conc); w.position.set(x, 1.7, z); parent.add(w);
+    const s = new THREE.Mesh(new THREE.CircleGeometry(r, 48), dark); s.rotation.x = -Math.PI / 2; s.position.set(x, 2.6, z); parent.add(s);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.4, 4, 12), steel); hub.position.set(x, 3.4, z); parent.add(hub);
+    const br = new THREE.Group(); br.position.set(x, 4.2, z); parent.add(br);
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(r, 0.8, 2.2), steel); beam.position.x = r / 2; beam.castShadow = true; br.add(beam);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(r, 1.1, 0.12), mrMat('erail', () => new THREE.MeshStandardMaterial({ color: 0xffc21a, roughness: 0.5 }))); rail.position.set(r / 2, 0.9, 1); br.add(rail);
+    const rail2 = rail.clone(); rail2.position.z = -1; br.add(rail2);
+    fx.spin.push({ obj: br, axis: 'y', w: 0.22 * dz });
+  }
+  // prédio com placa
+  const bld = new THREE.Mesh(new THREE.BoxGeometry(46, 14, 22), mrMat('eblds', () => new THREE.MeshStandardMaterial({ color: 0xe6e0cf, roughness: 0.8 })));
+  bld.position.set(c.x - RL - 20, 7, c.z - RL - 50); bld.castShadow = true; bld.receiveShadow = true; parent.add(bld);
+  const sg = new THREE.Mesh(new THREE.PlaneGeometry(30, 7.5), new THREE.MeshBasicMaterial({ map: mrSignTex('ESGOTO', true, '#1f5a1a', '#b8ff4a'), toneMapped: false, side: THREE.DoubleSide }));
+  sg.position.set(bld.position.x, 17.5, bld.position.z + 11.2); parent.add(sg);
+  // cano de saída: do piscinão até a beira do rio (por ele o que sobrar do carro sai voando)
+  const R = E.rv, nr = R.near(c.x + 330, c.z), rp = R.P[nr.i], bankX = rp.x - R.W / 2 + 2;
+  const x0 = c.x + RL + 1.8, x1 = Math.max(x0 + 40, bankX), py = 9, L = x1 - x0;
+  const pipe = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, L, 18, 1, true).rotateZ(Math.PI / 2), mrMat('epipe2', () => new THREE.MeshStandardMaterial({ map: esgPipeTex(), color: 0xb8bcae, roughness: 0.7, metalness: 0.3, side: THREE.DoubleSide })));
+  pipe.position.set((x0 + x1) / 2, py, c.z); pipe.castShadow = true; parent.add(pipe);
+  const fl = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.7, 8, 18).rotateY(Math.PI / 2), mrMat('epring', () => new THREE.MeshStandardMaterial({ color: 0x4d5148, roughness: 0.6, metalness: 0.5 })));
+  fl.position.set(x1, py, c.z); parent.add(fl);
+  const sup = []; for (let x = x0 + 8; x < x1 - 4; x += 16) sup.push(new THREE.BoxGeometry(1.2, py - 4, 1.2).translate(x, (py - 4) / 2, c.z));
+  if (sup.length) parent.add(new THREE.Mesh(mergeGeos(sup), dark));
+  E.out.set(x1 + 1.5, py - 0.5, c.z);
+  // jato: do cano até o meio do rio
+  E.splash.set(rp.x, E.yR, rp.z + (c.z - rp.z) * 0.3);
+  const T = 2.6, dx = E.splash.x - E.out.x, dz = E.splash.z - E.out.z, dy = E.splash.y - E.out.y;
+  E.outV.set(dx / T, (dy + 0.5 * GRAV * T * T) / T, dz / T);
+}
+// pilares da pista até o chão (sem pilar dentro do rio)
+function esgPillars(parent, TP) {
+  const mats = [], W = TP.def.W;
+  for (const dk of TP.decks) {
+    for (let s = dk.S[0] + 10; s < dk.S[dk.n] - 6; s += 36) {
+      let i = 0; while (i < dk.n && dk.S[i] < s) i++;
+      const z = dk.Z[i], top = dk.Y[i] - 1.6, yb = -0.5, h = top - yb;
+      if (h < 2 || esgInRiver(0, z, 8)) continue;
+      for (const sx of [-1, 1]) mats.push(new THREE.Matrix4().compose(new THREE.Vector3(sx * (W / 2 - 1.2), yb + h / 2, z), new THREE.Quaternion(), new THREE.Vector3(1.6, h, 1.6)));
+      mats.push(new THREE.Matrix4().compose(new THREE.Vector3(0, top - 0.4, z), new THREE.Quaternion(), new THREE.Vector3(W - 1, 0.8, 1.2)));
+      if (h > 30) for (let yy = yb + 24; yy < top - 8; yy += 24) mats.push(new THREE.Matrix4().compose(new THREE.Vector3(0, yy, z), new THREE.Quaternion(), new THREE.Vector3(W - 2.4, 0.6, 0.6)));
+    }
+  }
+  if (!mats.length) return;
+  const inst = new THREE.InstancedMesh(OB.geo.box, mrStyle(TP.id).under, mats.length);
+  mats.forEach((m, i) => inst.setMatrixAt(i, m));
+  inst.castShadow = true; inst.receiveShadow = true; parent.add(inst);
+}
+
+/* ---------- na descida: barris e pneus caindo perto da pista e ratinhos de capacete pulando para fora ---------- */
+function esgHazards(parent) {
+  const E = ESG, barG = new THREE.CylinderGeometry(0.75, 0.75, 2.1, 12), tireG = new THREE.TorusGeometry(0.95, 0.42, 8, 16);
+  const barM = mrMat('etox', () => new THREE.MeshStandardMaterial({ color: 0x3f7a1c, emissive: 0x58ff22, emissiveIntensity: 0.55, roughness: 0.5 }));
+  const tireM = mrMat('etire', () => new THREE.MeshStandardMaterial({ color: 0x1d1d1f, roughness: 0.8 }));
+  E.haz.length = 0;
+  for (let i = 0; i < (LOW_END ? 6 : 10); i++) {
+    const m = new THREE.Mesh(i % 2 ? tireG : barG, i % 2 ? tireM : barM); m.visible = false; m.castShadow = true; m.scale.setScalar(1.6); parent.add(m);
+    E.haz.push({ m, p: new THREE.Vector3(), v: new THREE.Vector3(), w: new THREE.Vector3(), on: false, wait: rr(0, 2) });
+  }
+}
+function esgLaunch(H) {
+  const E = ESG, car = GAME.car, run = GAME.run, TP = GAME.info && GAME.info.tp;
+  const cp = car ? car.body.position : null;
+  H.wait = rr(0.6, 1.8);
+  if (!cp || !TP || !run || run.takeoff || !run.started || cp.z < TP.zStart + 60 || cp.z > -80) return;
+  if (E.pipe && TP.sAtZ(cp.z) > E.pipe.s0 - 60 && TP.sAtZ(cp.z) < E.pipe.s1 + 40) return; // dentro do cano não
+  // cai do alto, uns 120 a 220 m na frente do carro, passando do lado da pista na hora em que o carro chega
+  const zt = cp.z + rr(120, 220), yt = TP.yAtZ(zt);
+  if (yt < -1e3) return;
+  const side = Math.random() < 0.5 ? -1 : 1, T = Math.max(0.8, (zt - cp.z) / Math.max(20, car.speed * Math.cos(TP.angAtZ(cp.z))));
+  H.on = true; H.m.visible = true;
+  H.p.set(side * rr(16, 34), yt + rr(70, 110), zt + rr(-10, 10));
+  H.v.set(side * rr(-2, 2), (yt + 2 - H.p.y) / T + 0.5 * GRAV * T, 0);
+  H.w.set(rr(-4, 4), rr(-4, 4), rr(-4, 4));
+}
+function esgHazStep(dt) {
+  const E = ESG;
+  for (const H of E.haz) {
+    if (!H.on) { H.wait -= dt; if (H.wait <= 0) esgLaunch(H); continue; }
+    H.v.y -= GRAV * dt; H.p.addScaledVector(H.v, dt);
+    H.m.position.copy(H.p); H.m.rotation.x += H.w.x * dt; H.m.rotation.y += H.w.y * dt; H.m.rotation.z += H.w.z * dt;
+    if (H.p.y < 1) {
+      H.on = false; H.m.visible = false;
+      const dust = FX.smokeS; for (let i = 0; i < 10; i++) dust.spawn(H.p.x + rr(-1.5, 1.5), 0.6, H.p.z + rr(-1.5, 1.5), rr(-2, 2), rr(1, 3), rr(-2, 2), rr(1, 1.8), 1.5, 5, 0.55, 0.5, 0.4, 0.6, -0.2, 0.6);
+    }
+  }
+}
+function esgRatGeo() {
+  const parts = [
+    paintGeo(new THREE.SphereGeometry(0.5, 10, 8).scale(0.8, 0.7, 1.25), 0x8d8a86),
+    paintGeo(new THREE.SphereGeometry(0.32, 10, 8).scale(0.9, 0.85, 1.1).translate(0, 0.18, 0.68), 0x9a9792),
+    paintGeo(new THREE.SphereGeometry(0.09, 6, 4).translate(0, 0.14, 1.02), 0xff8aa8),
+    paintGeo(new THREE.CylinderGeometry(0.05, 0.025, 1.1, 5).rotateX(-1.1).translate(0, 0.1, -0.95), 0xff9ab0),
+    paintGeo(new THREE.SphereGeometry(0.3, 10, 6, 0, TAU, 0, Math.PI / 2).scale(1, 0.8, 1).translate(0, 0.42, 0.62), 0xffc21a),
+    paintGeo(new THREE.CylinderGeometry(0.08, 0.08, 0.08, 8).rotateX(Math.PI / 2).translate(0, 0.52, 0.9), 0xfff6c0),
+  ];
+  for (const sx of [-1, 1]) {
+    parts.push(paintGeo(new THREE.CylinderGeometry(0.13, 0.13, 0.04, 10).rotateZ(Math.PI / 2).translate(sx * 0.27, 0.48, 0.5), 0xff9ab0));
+    parts.push(paintGeo(new THREE.SphereGeometry(0.05, 6, 4).translate(sx * 0.14, 0.26, 0.95), 0x111111));
+  }
+  return mergeGeos(parts);
+}
+function esgRats(parent, TP) {
+  const E = ESG, geo = esgRatGeo(), mat = mrMat('erat', () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, emissive: 0x111111 }));
+  E.rats.length = 0;
+  const W = TP.def.W;
+  for (const s of [14, 20, 60, 140, 260, 380, 470, 560, 760, 900, 1080, 1250]) {
+    if (s > TP.L - 30) continue;
+    const p = mrAtS(TP, s), x = (s % 3 - 1) * (W * 0.3) + rr(-1, 1);
+    const m = new THREE.Mesh(geo, mat); m.scale.setScalar(1.7); parent.add(m);
+    m.position.set(x, p.y + 0.62, p.z); m.rotation.set(-p.a, Math.PI + rr(-0.6, 0.6), 0);
+    E.rats.push({ m, x, y: p.y + 0.62, z: p.z, a: p.a, st: 0, t: 0, v: new THREE.Vector3(), ph: Math.random() * 6 });
+  }
+}
+function esgRatStep(dt) {
+  const E = ESG, car = GAME.car;
+  if (!car) return;
+  const cp = car.body.position, sp = Math.max(8, car.speed);
+  for (const R of E.rats) {
+    if (R.st === 2) continue;
+    if (R.st === 0) {
+      R.m.position.y = R.y + Math.abs(Math.sin(E.t * 9 + R.ph)) * 0.12; // pulinhos parado
+      if (cp.z > R.z - sp * 0.75 && cp.z < R.z + 3) {
+        // pula para fora do caminho (para o lado mais perto), dando um gritinho
+        R.st = 1; R.t = 0; const sd = R.x >= 0 ? 1 : -1;
+        R.v.set(sd * rr(7, 10), rr(7, 9), rr(-2, 2));
+        AUDIO.squeak();
+      }
+    } else {
+      R.t += dt; R.v.y -= GRAV * dt;
+      R.m.position.addScaledVector(R.v, dt); R.m.rotation.x += dt * 8; R.m.rotation.z += dt * 5;
+      if (R.t > 1.6) { R.st = 2; R.m.visible = false; }
+    }
+  }
+}
+function esgParticles(parent) {
+  const E = ESG;
+  const smoke = new PointFX(LOW_END ? 140 : 240, TEX.puff, false); smoke.floor = -1e9;
+  const goo = new PointFX(LOW_END ? 220 : 380, TEX.puff, false); goo.floor = -1e9;
+  const mist = new PointFX(LOW_END ? 60 : 110, TEX.puff, false); mist.floor = -1e9;
+  const fly = new PointFX(LOW_END ? 40 : 70, mrGlowTex(), false); fly.floor = -1e9;
+  E.fx = [smoke, goo, mist, fly];
+  for (const P of E.fx) { P.points.frustumCulled = false; parent.add(P.points); }
+  Object.assign(E, { smoke, gooP: goo, mist, fly });
+  // fumaça já subindo na largada
+  for (let i = 0; i < 60; i++) { esgPuff(); smoke.update(0.25); }
+}
+function esgPuff() {
+  const E = ESG, C = Math.random() < 0.35 ? E.chim[0] : E.chim[Math.floor(Math.random() * E.chim.length)];
+  if (!C) return;
+  let x = C.x, z = C.z;
+  if (C.big) { // em volta da pista, na boca da chaminé grande
+    const a = rr(0, TAU), r = rr(8, C.r); x = C.x + Math.cos(a) * r; z = C.z + Math.sin(a) * r;
+    if (Math.abs(x) < 7.5) x = Math.sign(x || 1) * rr(7.5, 12);
+  } else { x += rr(-1, 1) * C.r * 0.5; z += rr(-1, 1) * C.r * 0.5; }
+  const g = rr(0.36, 0.5);
+  if (C.big) E.smoke.spawn(x, C.y - 2, z, rr(-2, 2) + 1.5, rr(2.5, 5), rr(-2, 2), rr(7, 11), rr(9, 13), rr(34, 52), g + 0.05, g, g - 0.06, 0.7, -0.15, 0.06);
+  else E.smoke.spawn(x, C.y, z, rr(-1.5, 1.5) + 2, rr(3, 5), rr(-1.5, 1.5), rr(6, 10), rr(4, 6), rr(18, 26), g + 0.05, g, g - 0.06, 0.65, -0.25, 0.08);
+}
+function esgSplat(p, n, k, mud) {
+  const G = ESG.gooP, c = mud ? [0.36, 0.28, 0.18] : [0.45, 0.75, 0.15];
+  for (let i = 0; i < n; i++) {
+    const a = rr(0, TAU), sp = rr(2, 8) * k;
+    G.spawn(p.x + Math.cos(a) * rr(0.3, 1.6), p.y + 0.2, p.z + Math.sin(a) * rr(0.3, 1.6), Math.cos(a) * sp, rr(4, 12) * k, Math.sin(a) * sp, rr(0.7, 1.4), rr(0.4, 0.8) * k, rr(1.2, 2.6) * k, c[0] * rr(0.85, 1.15), c[1] * rr(0.85, 1.15), c[2], 0.95, GRAV, 0.25);
+  }
+}
+
+/* ---------- monta a Mega Rampa do Esgoto ---------- */
+function mrBuildEsgoto(root, carIdx) {
+  const R = MEGA_RAMPS.find(m => m.id === 'esgoto'), spec = CAR_SPECS[carIdx], TP = mrProfile('esgoto'), E = ESG;
+  // o piscinão fica onde os saltos (com e sem foguete) caem na gosma
+  E.yG = 3.2; E.wallH = 4.4; E.yR = 0.14;
+  const pred = mrPredictTo(spec, R, TP, E.yG);
+  const zN = pred.D, zR = Math.max(pred.DR, zN + 20);
+  E.RL = clamp((zR - zN) / 2 + 30, 62, 96);
+  E.c.set(0, 0, (zN + zR) / 2 + 4);
+  E.t = 0; E.vortex = 0; E.cull = 0; E.aAcc = 0; E.fAcc = 0; E.sAcc = 0; E.dAcc = 0;
+  const d0 = TP.decks[0];
+  E.zW = d0.Z[d0.n] + 15 * Math.sqrt(2 * Math.max(1, d0.Y[d0.n] - 3.2) / GRAV) + 1;
+  E.rv = esgRiver(E.zW, E.c.z);
+  E.dump.set(-130, 0, lerp(E.zW, 0, 0.35));
+  addGroundPlane();
+  mrTrackPhysics(TP);
+  mrTrackVisual(root, TP);
+  mrGantries(root, TP, 'ESGOTO', '#1f4a14', '#b8ff4a', 300);
+  const fx = { spin: [], blink: [] };
+  esgStation(root, TP, fx);
+  esgGround(root);
+  esgPipe(root, TP, Math.max(200, d0.S[d0.n] - 285), d0.S[d0.n], fx);
+  esgFall(root, TP);
+  esgIndustry(root, TP);
+  esgDump(root);
+  esgSpills(root);
+  esgPlant(root, fx);
+  esgPillars(root, TP);
+  esgHazards(root);
+  esgRats(root, TP);
+  esgParticles(root);
+  E.g = root;
+  const sRoll = mrAtS(TP, 140);
+  return { def: { name: R.name, full: 1, items: [] }, spec, pred, Lr: -TP.zStart, zStart: TP.zStart, zBase: -40, D: zN, DR: zR, Jt: E.c.z, wallZ: E.c.z + E.RL + 400,
+    ramp: R, rampIdx: -1, geo: { H: TP.lipY, lip: TP.lipAng / DEG }, rampFx: { spin: fx.spin, spring: null }, pads: null, padZ0: sRoll.z,
+    mega: true, mr: 'esgoto', megaP: TP, tp: TP, startY: TP.top, startZ: TP.zStart + 4.5, loop: null, land: null, fx, esg: E };
+}
+
+/* ---------- física: pedaços que caem na gosma afundam e somem; no ar o carro é guiado para o piscinão ---------- */
+function esgWater(h) {
+  const E = ESG, L = PHY.dyn, chk = (E.cull = (E.cull + 1) % 8) === 0;
+  for (let i = 0; i < L.length; i++) {
+    const o = L[i];
+    if (!o.alive) continue;
+    const b = o.body, p = b.position;
+    if (b.type !== CANNON.Body.DYNAMIC) continue;
+    const r = Math.hypot(p.x - E.c.x, p.z - E.c.z);
+    if (r < E.RL && p.y < E.yG) {
+      // afunda devagar na gosma
+      if (!o._goo) { o._goo = true; _v1.set(p.x, E.yG, p.z); esgSplat(_v1, 6, 0.5); }
+      b.velocity.y += GRAV * 0.8 * h; const dr = Math.exp(-h * 3); b.velocity.x *= dr; b.velocity.y *= dr; b.velocity.z *= dr;
+      if (chk && p.y < E.yG - 2.6) removeDyn(o);
+    } else if (chk && (Math.abs(p.x) > 2500 || p.z > E.c.z + 2500)) removeDyn(o);
+  }
+}
+function mrEsgotoPhysics(car, run, h) {
+  const E = ESG;
+  esgWater(h);
+  if (!run.takeoff || car.gooM || car.gooGone || GAME.state !== 'run') return;
+  const b = car.body, p = b.position, v = b.velocity, m = car.spec.mass;
+  // onde cai na gosma se seguir assim: corrige o erro aos poucos (como no vulcão)
+  const dy = p.y - E.yG, tH = (v.y + Math.sqrt(Math.max(0, v.y * v.y + 2 * GRAV * Math.max(0, dy)))) / GRAV;
+  if (tH > 0.15) {
+    const ex = p.x + v.x * tH - E.c.x, ez = p.z + v.z * tH - E.c.z, dead = E.RL * 0.25;
+    const fx = Math.sign(ex) * Math.max(0, Math.abs(ex) - dead), fz = Math.sign(ez) * Math.max(0, Math.abs(ez) - dead);
+    const k = 1.7 / Math.max(1, tH * tH);
+    b.force.x -= clamp(fx * k, -9, 9) * m; b.force.z -= clamp(fz * k, -9, 9) * m;
+  }
+  const r = Math.hypot(p.x - E.c.x, p.z - E.c.z);
+  if (r < E.RL + 1.5 && p.y - 0.3 < E.yG + (r > E.RL ? E.wallH - E.yG : 0)) gooEnter(car, run, true);
+  else if (r >= E.RL + 1.5 && (p.y < 0.45 + car.spec.yR * 0.2 || (run.t - run.takeoffT > 1 && car.grounded > 0))) gooEnter(car, run, false);
+}
+function gooEnter(car, run, pool) {
+  const E = ESG, y = pool ? E.yG : Math.max(0, esgInRiver(car.body.position.x, car.body.position.z) ? E.yR : 0);
+  car.gooStart(y, pool);
+  run.gooCap = true; run.gooPool = pool; run.landed = true; run.landT = run.t;
+  run.dist = Math.max(0, car.body.position.z - run.lipZ);
+  run.tgt += 500; popPoints(500);
+  callout('PLOFT!', 's2'); setTimeout(() => { if (GAME.run === run) callout('ECA!', 's3'); }, 350);
+  AUDIO.ploft(); vibrate(80);
+  _v1.set(car.body.position.x, y, car.body.position.z); esgSplat(_v1, LOW_END ? 40 : 70, 1.4, !pool);
+  const c = GAME.cam; c.mode = 'goo'; c.t = 0; c.gooA = null; c.shake = Math.min(1.2, c.shake + 0.5);
+  $('air').hidden = true;
+}
+function onCarGoo(ev) {
+  const run = GAME.run;
+  if (!run || (GAME.state !== 'run' && GAME.state !== 'ending')) return;
+  if (ev === 'drain') { callout('O RALO ABRIU!', 's3'); AUDIO.flush(); }
+  else if (ev === 'flush') { callout('DESCARGA!', 's2'); run.tgt += 1000; popPoints(1000); run.gooDrain = true; vibrate(120); GAME.cam.shake = Math.min(1.4, GAME.cam.shake + 0.8); }
+  else if (ev === 'blub') { callout('BLUB!', 's3'); AUDIO.ploft(0.8); vibrate(60); }
+  else if (ev === 'splash') { callout('TCHIBUM!', 's2'); AUDIO.splash(1); run.gooEnd = true; }
+  else if (ev === 'mud') { callout('AFUNDOU!', 's3'); run.gooEnd = true; }
+}
+
+/* ---------- o carro na gosma: afunda (pintura melecada), o ralo puxa em espiral e o cano de saída cospe no rio ---------- */
+Object.assign(Car.prototype, {
+  gooStart(yG, pool) {
+    const b = this.body, p = b.position, v = b.velocity, E = ESG;
+    this.gooM = { t: 0, phase: 'sink', T: pool ? 3.2 : 5.2, pool, yG, u: 0, te: 0, yaw: Math.atan2(v.x, v.z) || 0, dyaw: rr(-0.3, 0.3),
+      p0: new THREE.Vector3(p.x, p.y, p.z), v0: new THREE.Vector3(v.x, Math.min(0, v.y) * (pool ? 1 : 0.2), v.z), pos: new THREE.Vector3(p.x, p.y, p.z), prev: new THREE.Vector3(p.x, p.y, p.z),
+      q0: new THREE.Quaternion(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w), qE: new THREE.Quaternion(), vE: new THREE.Vector3(), spin: new THREE.Vector3(rr(-1, 1), rr(-0.4, 0.4), rr(-1, 1)).normalize(),
+      r0: 0, th: 0, acc: 0, accG: 0, accP: 0, accD: 0, wheel: 0, said: {} };
+    b.collisionFilterMask = 0;
+    this.grounded = 0;
+    this.drowned = true;
+    const F = this.fire; if (F.on) { F.on = false; F.lvl = 0; F.cabin = 0; AUDIO.hiss(1); }
+    if (this.tank.fuse >= 0) this.tank.fuse = -1;
+    const rk = this.rk; if (rk && (rk.state === 'fire' || rk.state === 'deploy')) { rk.state = 'spent'; this.nitro = false; }
+    // a pintura vai ficando verde-marrom e brilhante de gosma
+    this.gooMats = [];
+    this.vis.traverse(o => { if (o.isMesh && o.material === CARMAT.paint) { o.material = CARMAT.paint.clone(); this.gooMats.push({ m: o.material, c: o.material.color.clone() }); } });
+  },
+  gooAdvance(h) {
+    const M = this.gooM, E = ESG, b = this.body;
+    M.t += h;
+    if (M.phase === 'sink') {
+      const u = M.u = Math.min(1, M.t / M.T), kv = Math.exp(-M.t * 2.6);
+      M.pos.x += M.v0.x * kv * h; M.pos.z += M.v0.z * kv * h;
+      const depth = M.pool ? 0.85 : 2.3;
+      const yT = M.yG + 0.25 - depth * Math.pow(u, 1.3) + 0.08 * Math.sin(M.t * 3.4);
+      M.pos.y = lerp(M.p0.y + M.v0.y * Math.min(M.t, 0.3), yT, smooth01(M.t / 0.3));
+      _we.set(0.05 + 0.1 * u, M.yaw + M.dyaw * M.t, 0.1 * Math.sin(M.t * 1.2), 'YXZ'); _wq1.setFromEuler(_we);
+      _wq2.copy(M.q0).slerp(_wq1, smooth01(M.t / 0.6));
+      this.gooWreck(h, M.pool ? u * 0.6 : u);
+      if (u >= 1) {
+        if (M.pool) { M.phase = 'drain'; M.t = 0; M.T = 4.6; M.r0 = Math.max(4, Math.hypot(M.pos.x - E.c.x, M.pos.z - E.c.z)); M.th = Math.atan2(M.pos.z - E.c.z, M.pos.x - E.c.x); M.y0 = M.pos.y; if (this.onGoo) this.onGoo('drain'); }
+        else { this.gooDone = true; this.computeDamage(); this.gooGoneFn(false); return; }
+      }
+    } else if (M.phase === 'drain') {
+      // o ralo abre: o carro gira em espiral cada vez mais rápido até o buraco do meio
+      const u = M.u = Math.min(1, M.t / M.T);
+      E.vortex = Math.min(1, E.vortex + h * 1.2);
+      const r = M.r0 * Math.pow(1 - u, 1.25);
+      M.th += (0.6 + 6.5 * u * u) * h;
+      M.pos.set(E.c.x + Math.cos(M.th) * r, M.y0 - 1.6 * u * u, E.c.z + Math.sin(M.th) * r);
+      _we.set(0.2 + 0.5 * u, -M.th * (1 + u) + M.yaw, 0.3 * Math.sin(M.t * 5), 'YXZ'); _wq2.setFromEuler(_we);
+      this.gooWreck(h, 0.6 + 0.4 * u);
+      if (u > 0.55 && !M.said.flush) { M.said.flush = true; if (this.onGoo) this.onGoo('flush'); }
+      if (Math.random() < h * 30) esgSplat(_v1.set(M.pos.x, E.yG, M.pos.z), 2, 0.6);
+      if (u >= 1) {
+        M.phase = 'pipe'; M.t = 0; this.root.visible = false;
+        this.gooDone = true; this.computeDamage();
+        esgSplat(_v1.set(E.c.x, E.yG, E.c.z), LOW_END ? 25 : 45, 1.2);
+      }
+    } else if (M.phase === 'pipe') {
+      // passando pelo cano até a saída
+      M.pos.copy(E.out); _wq2.copy(b.quaternion);
+      if (M.t > 1.0) {
+        M.phase = 'jet'; M.t = 0; M.te = 0; this.root.visible = true;
+        M.vE.copy(E.outV); M.qE.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w);
+        if (this.onGoo) this.onGoo('blub');
+      }
+    } else if (M.phase === 'jet') {
+      M.te += h;
+      M.vE.y -= GRAV * h; M.pos.addScaledVector(M.vE, h);
+      _wq1.setFromAxisAngle(M.spin, M.te * 5); _wq2.copy(M.qE).premultiply(_wq1);
+      // jato de esgoto junto
+      if (Math.random() < h * 60) E.gooP.spawn(M.pos.x + rr(-0.8, 0.8), M.pos.y + rr(-0.5, 0.5), M.pos.z + rr(-0.8, 0.8), M.vE.x * 0.7 + rr(-1, 1), M.vE.y * 0.7, M.vE.z * 0.7 + rr(-1, 1), rr(0.6, 1.1), 0.8, 2.2, 0.5, 0.7, 0.18, 0.9, GRAV, 0.2);
+      if (M.te > 0.4 && M.pos.y < E.yR + 0.4) { this.gooGoneFn(true); return; }
+    }
+    const vx = (M.pos.x - M.prev.x) / h, vy = (M.pos.y - M.prev.y) / h, vz = (M.pos.z - M.prev.z) / h;
+    M.prev.copy(M.pos);
+    b.position.set(M.pos.x, M.pos.y, M.pos.z); b.velocity.set(vx, vy, vz);
+    this.speed = Math.hypot(vx, vy, vz);
+    b.quaternion.set(_wq2.x, _wq2.y, _wq2.z, _wq2.w);
+    b.angularVelocity.set(0, 0, 0); b.force.set(0, 0, 0); b.torque.set(0, 0, 0);
+    b.aabbNeedsUpdate = true;
+  },
+  // a gosma amassa (murcha), solta vidros, peças e rodas e escorre pela lataria
+  gooWreck(h, u) {
+    const M = this.gooM, s = this.spec;
+    M.acc += h;
+    const every = lerp(0.28, 0.12, u);
+    while (M.acc > every) {
+      M.acc -= every;
+      const px = rr(-1, 1) * s.W / 2, py = lerp(s.yB, s.yR, Math.min(1, Math.random() * (0.5 + 0.6 * u))), pz = rr(-1, 1) * s.L / 2;
+      _v3.set(-Math.sign(px) * rr(0.2, 0.6), -rr(0.5, 1), rr(-0.2, 0.2)).normalize();
+      this.lat.impact(px, py, pz, _v3.x, _v3.y, _v3.z, 0.03 + 0.11 * u, 0.55 + 0.35 * u);
+    }
+    if (u > 0.05) {
+      M.accG += h;
+      if (M.accG > 0.32) { M.accG = 0; const g = this.parts.filter(q => (q.type === 'glass' || q.type === 'light') && !q.broken); if (g.length) this.breakPart(g[Math.floor(Math.random() * g.length)]); }
+    }
+    if (u > 0.15) {
+      M.accP += h;
+      if (M.accP > 0.55) { M.accP = 0; const p = this.parts.filter(q => q.attached && q.detachAt); if (p.length) this.detachPart(p[Math.floor(Math.random() * p.length)]); }
+    }
+    const att = this.wheels.filter(w => w.attached);
+    if (att.length && u > 0.22 + M.wheel * 0.14) { M.wheel++; this.detachWheel(att[Math.floor(Math.random() * att.length)]); }
+    if (u > 0.7 && this.enginePart && this.enginePart.attached) this.engineOut();
+    // pintura melecada (verde-marrom brilhante) e gotas escorrendo
+    const k = smooth01(u / 0.7), mud = !M.pool;
+    for (const g of this.gooMats) {
+      g.m.color.copy(g.c).lerp(_c1.setRGB(mud ? 0.3 : 0.32, mud ? 0.22 : 0.46, mud ? 0.13 : 0.1), k);
+      g.m.roughness = lerp(0.35, mud ? 0.9 : 0.12, k); g.m.emissive.setRGB(mud ? 0 : 0.06 * k, mud ? 0 : 0.14 * k, 0);
+    }
+    M.accD += h * (mud ? 6 : 14);
+    const E = ESG, P = this.body.position;
+    while (M.accD > 1) {
+      M.accD -= 1;
+      E.gooP.spawn(P.x + rr(-1, 1) * s.W * 0.5, P.y + rr(0.2, 0.9), P.z + rr(-1, 1) * s.L * 0.5, rr(-0.3, 0.3), rr(-0.5, 0.2), rr(-0.3, 0.3), rr(0.6, 1.0), 0.25, 0.4, mud ? 0.36 : 0.45, mud ? 0.28 : 0.72, mud ? 0.18 : 0.15, 0.95, GRAV * 0.6, 0.4);
+    }
+  },
+  gooGoneFn(river) {
+    const M = this.gooM, E = ESG;
+    E.lastY = M.yG;
+    this.gooM = null; this.gooGone = true; this.gooDone = true;
+    this.root.visible = false;
+    this.fire.on = false; this.tank.fuse = -1;
+    if (this.fire.glow) this.fire.glow.material.opacity = 0;
+    this.body.velocity.set(0, 0, 0);
+    if (river) { _v1.set(M.pos.x, E.yR, M.pos.z); for (let i = 0; i < (LOW_END ? 30 : 50); i++) { const a = rr(0, TAU), sp = rr(2, 9); FX.water.spawn(_v1.x + Math.cos(a), _v1.y + 0.3, _v1.z + Math.sin(a), Math.cos(a) * sp, rr(6, 16), Math.sin(a) * sp, rr(0.9, 1.6), 0.6, 2.2, 0.62, 0.66, 0.42, 0.9, GRAV, 0.3); } }
+    else { _v1.set(M.pos.x, M.yG, M.pos.z); esgSplat(_v1, 30, 1, true); }
+    this.computeDamage();
+    if (this.onGoo) this.onGoo(river ? 'splash' : 'mud');
+  },
+});
+// câmera na gosma: gira em volta do carro afundando, vê o ralo de cima e acompanha o jato até o rio
+function mrGooCam(c, dt, P, car, portrait) {
+  const M = car.gooM, E = ESG;
+  const ph = M ? M.phase : 'end', mud = M ? !M.pool : !(GAME.run && GAME.run.gooPool);
+  if (ph === 'sink' || (ph === 'end' && mud)) {
+    // em volta do carro afundando (na lama, continua girando depois que ele some)
+    const yG = M ? M.yG : E.lastY;
+    if (c.gooA == null) c.gooA = Math.atan2(c.pos.x - P.x, c.pos.z - P.z);
+    c.gooA += dt * 0.32;
+    const R = 10 * (car.spec.L / 4.5) * (portrait ? 1.45 : 1);
+    _cp.set(P.x + Math.sin(c.gooA) * R, yG + 4.6, P.z + Math.cos(c.gooA) * R);
+    c.pos.lerp(_cp, 1 - Math.exp(-dt * 2.4));
+    c.look.lerp(_cl.set(P.x, yG + 0.4, P.z), 1 - Math.exp(-dt * 5));
+  } else if (ph === 'drain') {
+    // de cima, vendo o redemoinho do ralo
+    if (c.gooA == null) c.gooA = 0;
+    c.gooA += dt * 0.2;
+    const R = E.RL * (portrait ? 0.55 : 0.45), Hh = E.RL * (portrait ? 0.95 : 0.7);
+    _cp.set(E.c.x + Math.sin(c.gooA) * R, E.yG + Hh, E.c.z + Math.cos(c.gooA) * R);
+    c.pos.lerp(_cp, 1 - Math.exp(-dt * 1.6));
+    c.look.lerp(_cl.set(P.x * 0.5 + E.c.x * 0.5, E.yG, P.z * 0.5 + E.c.z * 0.5), 1 - Math.exp(-dt * 3));
+  } else {
+    // o jato: de lado, entre o cano de saída e o rio
+    _v1.copy(E.out).lerp(E.splash, 0.5);
+    const D = portrait ? 75 : 55;
+    _cp.set(_v1.x, E.out.y + 14, _v1.z - D);
+    c.pos.lerp(_cp, 1 - Math.exp(-dt * (ph === 'pipe' ? 2.2 : 3)));
+    if (ph === 'jet' || ph === 'pipe') _cl.copy(ph === 'pipe' ? E.out : P); else _cl.copy(E.splash);
+    c.look.lerp(_cl, 1 - Math.exp(-dt * 4));
+  }
+}
+
+/* ---------- efeitos por quadro ---------- */
+function esgotoFrame(dt) {
+  const E = ESG, car = GAME.car;
+  if (!E.g) return;
+  E.t += dt;
+  esgRiverMat().uniforms.uT.value = E.t; esgFallMat().uniforms.uT.value = E.t;
+  const GU = esgGooMat().uniforms; GU.uT.value = E.t; GU.uV.value = E.vortex; if (WORLD.sunDir) GU.uSun.value.copy(WORLD.sunDir);
+  const us = FX.spark.mat.uniforms.uScale.value;
+  for (const P of E.fx) { P.mat.uniforms.uScale.value = us; P.update(dt); }
+  esgTrashStep(dt); esgHazStep(dt); esgRatStep(dt);
+  // fumaça das chaminés
+  E.sAcc += dt * (LOW_END ? 7 : 12);
+  while (E.sAcc > 1) { E.sAcc -= 1; esgPuff(); }
+  // névoa e espuma no pé da cachoeira e nos canos que despejam no rio
+  E.aAcc += dt * (LOW_END ? 5 : 9);
+  while (E.aAcc > 1) {
+    E.aAcc -= 1;
+    const b = E.fallBase;
+    if (b) E.mist.spawn(b.x + rr(-10, 10), E.yR + 1, b.z + rr(-6, 6), rr(-2, 2), rr(2, 5), rr(-2, 2), rr(2, 3.5), 6, 18, 0.82, 0.84, 0.66, 0.4, -0.3, 0.3);
+    const S = E.spill[Math.floor(Math.random() * E.spill.length)];
+    if (S) E.gooP.spawn(S.p.x, S.p.y, S.p.z, S.d.x * 3 + rr(-0.3, 0.3), rr(-0.5, 0.5), S.d.z * 3 + rr(-0.3, 0.3), rr(1, 1.4), 1, 1.8, 0.42, 0.48, 0.2, 0.9, GRAV, 0.2);
+  }
+  // urubus em volta do lixão e moscas
+  for (const B of E.birds) {
+    B.a += B.w * dt;
+    B.g.position.set(E.dump.x + Math.cos(B.a) * B.r, B.h + 4 * Math.sin(E.t * 0.7 + B.ph), E.dump.z + Math.sin(B.a) * B.r);
+    B.g.rotation.set(0, -B.a + (B.w > 0 ? 0 : Math.PI), B.w > 0 ? -0.3 : 0.3);
+    const f = Math.sin(E.t * 3 + B.ph) * 0.35; B.wl.rotation.z = f; B.wr.rotation.z = -f;
+  }
+  E.fAcc += dt * (LOW_END ? 8 : 14);
+  while (E.fAcc > 1) { E.fAcc -= 1; const a = rr(0, TAU), r = rr(5, 30); E.fly.spawn(E.dump.x + Math.cos(a) * r, rr(8, 30), E.dump.z + Math.sin(a) * r, rr(-4, 4), rr(-2, 2), rr(-4, 4), rr(1, 2), 0.5, 0.5, 0.05, 0.05, 0.05, 0.9, 0, 0); }
+  // gosma escorrendo dentro do cano (perto do carro)
+  if (car && E.pipe && Math.random() < dt * 20) {
+    const TP = GAME.info.tp, s = TP.sAtZ(car.body.position.z) + rr(8, 40);
+    if (s > E.pipe.s0 && s < E.pipe.s1) { const p = mrAtS(TP, s), x = rr(-5, 5); E.gooP.spawn(x, p.y + 4.6 + Math.cos(p.a) * (Math.sqrt(100 - x * x) - 1), p.z, 0, -1, 0, rr(0.8, 1.3), 0.35, 0.5, 0.45, 0.8, 0.15, 0.95, GRAV, 0.1); }
+  }
+  // borbulhas no piscinão
+  if (Math.random() < dt * 6) { const a = rr(0, TAU), r = Math.sqrt(Math.random()) * (E.RL - 4); esgSplat(_v1.set(E.c.x + Math.cos(a) * r, E.yG, E.c.z + Math.sin(a) * r), 3, 0.35); if (car && car.body.position.distanceTo(_v1) < 90 && Math.random() < 0.3) AUDIO.bloop(); }
+  // sons: fábricas roncando, moscas no lixão, gosma borbulhando
+  if (car) {
+    const p = camera.position, dd = Math.hypot(p.x - E.dump.x, p.z - E.dump.z), dg = Math.hypot(p.x - E.c.x, p.z - E.c.z);
+    AUDIO.rumble(car.gooM || car.gooGone ? 0.12 : 0.3);
+    AUDIO.flies(clamp(1.2 - dd / 220, 0, 1));
+    AUDIO.goo(clamp(1.3 - dg / 260, 0, 1) * (car.gooM ? 1.3 : 0.8));
+  }
+}
+
+/* ---------- sons ---------- */
+AUDIO.goo = function (k) {
+  if (!this.ctx) return;
+  if (!this.goG) {
+    const c = this.ctx;
+    this.goSrc = c.createBufferSource(); this.goSrc.buffer = this.noise; this.goSrc.loop = true;
+    this.goF = c.createBiquadFilter(); this.goF.type = 'bandpass'; this.goF.frequency.value = 260; this.goF.Q.value = 2.2;
+    this.goG = c.createGain(); this.goG.gain.value = 0;
+    this.goSrc.connect(this.goF); this.goF.connect(this.goG); this.goG.connect(this.master); this.goSrc.start();
+  }
+  const t = this.ctx.currentTime;
+  this.goG.gain.setTargetAtTime(k * 0.3, t, 0.3);
+  this.goF.frequency.setTargetAtTime(220 + 140 * Math.random(), t, 0.08);
+};
+AUDIO.flies = function (k) {
+  if (!this.ctx) return;
+  if (!this.flG) {
+    const c = this.ctx;
+    this.flO = c.createOscillator(); this.flO.type = 'sawtooth'; this.flO.frequency.value = 190;
+    this.flF = c.createBiquadFilter(); this.flF.type = 'bandpass'; this.flF.frequency.value = 600; this.flF.Q.value = 3;
+    this.flG = c.createGain(); this.flG.gain.value = 0;
+    this.flO.connect(this.flF); this.flF.connect(this.flG); this.flG.connect(this.master); this.flO.start();
+  }
+  const t = this.ctx.currentTime;
+  this.flG.gain.setTargetAtTime(k * 0.05, t, 0.2);
+  this.flO.frequency.setTargetAtTime(170 + 50 * Math.random(), t, 0.05);
+};
+AUDIO.ploft = function (k = 1) {
+  if (!this.ok('ploft', 0.15)) return;
+  this.noiseBurst('lowpass', 700, 1.2, 0.5 * k, 0.4);
+  this.tone('sine', 240, 70, 0.4 * k, 0.32);
+  this.tone('sine', 520, 160, 0.12 * k, 0.18, 0.05);
+};
+AUDIO.flush = function () {
+  if (!this.ok('flush', 1)) return;
+  this.noiseBurst('bandpass', 900, 0.8, 0.45, 2.2);
+  this.noiseBurst('lowpass', 400, 1, 0.35, 2.6, 0.3);
+  for (let i = 0; i < 8; i++) this.tone('sine', rr(180, 420), rr(60, 140), 0.09, rr(0.15, 0.3), 0.2 + i * 0.22);
+};
+AUDIO.squeak = function () {
+  if (!this.ok('squeak', 0.25)) return;
+  this.tone('sine', 1900, 2600, 0.07, 0.09);
+  this.tone('sine', 2300, 1700, 0.06, 0.1, 0.1);
+};
+
+/* ---------- céu de fumaça: amarelado, com o sol apagado, chaminés e fábricas lá longe ---------- */
+function bgBuildEsgoto() {
+  const S = { follow: new THREE.Group(), world: new THREE.Group() }, T = THEMES.esgoto;
+  const skyMat = new THREE.ShaderMaterial({
+    uniforms: { uTop: { value: new THREE.Color(0x726f50) }, uMid: { value: new THREE.Color(0xa69a66) }, uHor: { value: new THREE.Color(T.fog) }, uSun: { value: new THREE.Vector3(T.dir[0], T.dir[1], T.dir[2]).normalize() } },
+    vertexShader: 'varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform vec3 uTop; uniform vec3 uMid; uniform vec3 uHor; uniform vec3 uSun; varying vec3 vD;\n' +
+      'void main(){ vec3 d = normalize(vD); float h = d.y; vec3 c = mix(uHor, uMid, smoothstep(0.0, 0.25, h)); c = mix(c, uTop, smoothstep(0.2, 0.8, h));\n' +
+      ' if (h < 0.0) c = uHor;\n' +
+      ' float s = max(dot(d, normalize(uSun)), 0.0); c = mix(c, vec3(1.0, 0.93, 0.7), smoothstep(0.9985, 0.9992, s) * 0.85); c += vec3(0.5, 0.42, 0.2) * pow(s, 12.0) * 0.25;\n' +
+      ' gl_FragColor = vec4(c, 1.0); }',
+    side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
+  });
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(3e5, 48, 24), skyMat); sky.renderOrder = -10; sky.frustumCulled = false; S.follow.add(sky);
+  // silhueta de fábricas e chaminés no horizonte
+  const N = 300, R = 1.2e4, pos = [], idx = [], rnd = mulberry32(919);
+  let hh = 260;
+  for (let i = 0; i <= N; i++) {
+    const a = i / N * TAU; hh = clamp(hh + (rnd() - 0.5) * 120, 120, 520);
+    const h = rnd() < 0.07 ? hh + 500 + rnd() * 500 : hh;
+    pos.push(Math.sin(a) * R, -400, Math.cos(a) * R, Math.sin(a) * R, h, Math.cos(a) * R);
+    if (i < N) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); mg.setIndex(idx);
+  const sil = new THREE.Mesh(mg, new THREE.MeshBasicMaterial({ color: 0x8a7d58, side: THREE.DoubleSide, depthWrite: false, depthTest: false, fog: false }));
+  sil.renderOrder = -7; sil.frustumCulled = false; S.follow.add(sil);
+  return S;
+}
+
+/* ---------- desenho do cartão: chaminés, cano despejando gosma, a rampa e o piscinão com o ralo ---------- */
+function mrEsgotoSVG(uid) {
+  return `<defs><linearGradient id="es${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8c8a64"/><stop offset="1" stop-color="#d8c88a"/></linearGradient>` +
+    `<radialGradient id="eg${uid}" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#2c3a10"/><stop offset="0.45" stop-color="#7ac21e"/><stop offset="1" stop-color="#9be22c"/></radialGradient></defs>` +
+    `<rect width="320" height="192" fill="url(#es${uid})"/><circle cx="262" cy="30" r="13" fill="#f5e7b0" opacity="0.85"/>` +
+    `<path d="M150 150L150 118L172 108L172 150ZM176 150L176 112L204 102L204 150Z" fill="#8a7d58" opacity="0.7"/>` +
+    `<rect y="150" width="320" height="42" fill="#7a6d4c"/><path d="M0 168Q80 160 160 170T320 166L320 180Q240 186 160 178T0 182Z" fill="#5b6a2c" opacity="0.85"/>` +
+    `<rect x="6" y="20" width="18" height="140" fill="#8b8172" stroke="#14171c" stroke-width="1.5"/><rect x="6" y="20" width="18" height="9" fill="#c8342c"/><rect x="6" y="38" width="18" height="9" fill="#c8342c"/>` +
+    `<ellipse cx="12" cy="12" rx="13" ry="7" fill="#7d7a70" opacity="0.8"/><ellipse cx="22" cy="4" rx="12" ry="6" fill="#8d8a80" opacity="0.7"/>` +
+    `<rect x="38" y="70" width="12" height="90" fill="#8b8172" stroke="#14171c" stroke-width="1.2"/><rect x="38" y="70" width="12" height="6" fill="#c8342c"/><ellipse cx="44" cy="62" rx="10" ry="6" fill="#8d8a80" opacity="0.7"/>` +
+    `<path d="M64 74L102 98" stroke="#14171c" stroke-width="15" stroke-linecap="round"/><path d="M64 74L102 98" stroke="#6b6f63" stroke-width="12" stroke-linecap="round"/>` +
+    `<path d="M101 100Q106 128 104 160" fill="none" stroke="#7ac21e" stroke-width="7" stroke-linecap="round" opacity="0.9"/><path d="M103 102Q108 128 106 160" fill="none" stroke="#c8ff6a" stroke-width="2" opacity="0.9"/>` +
+    `<ellipse cx="246" cy="150" rx="56" ry="14" fill="#cfc8b8" stroke="#14171c" stroke-width="1.6"/><ellipse cx="246" cy="149" rx="50" ry="11" fill="url(#eg${uid})"/>` +
+    `<path d="M214 149Q230 140 250 144Q266 148 262 153M226 153Q244 158 262 151" fill="none" stroke="#e9ffb0" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>` +
+    `<circle cx="222" cy="146" r="2.4" fill="#c8ff6a"/><circle cx="270" cy="150" r="1.8" fill="#c8ff6a"/>`;
+}
+
+/* ============================================================
    Mega Rampa: liga e desliga o mundo, física extra, eventos da corrida,
    câmeras, efeitos por quadro e o começo da rodada
    ============================================================ */
+// cada mega rampa: tema, como monta, céu de fundo, até onde a câmera enxerga, neblina, efeitos por quadro e física extra
+const MR_DEF = {
+  earth: { theme: 'day', build: mrBuildEarth, bg: bgBuildEarth, far: 9000, frame: (dt, now) => earthFrame(dt, now) },
+  bh: { theme: 'space', build: mrBuildBH, bg: bgBuildBH, far: 5000, frame: bhFrame, phys: mrBHPhysics },
+  volcano: { theme: 'volcano', build: mrBuildVolcano, bg: bgBuildVolcano, far: 8000, fog: true, frame: volcanoFrame, phys: mrVolcPhysics },
+  whirl: { theme: 'sea', build: mrBuildWhirl, bg: bgBuildWhirl, far: 9600, fog: true, frame: whirlFrame, phys: mrWhirlPhysics, water: whirlWater },
+  esgoto: { theme: 'esgoto', build: mrBuildEsgoto, bg: bgBuildEsgoto, far: 3600, fog: true, frame: esgotoFrame, phys: mrEsgotoPhysics, water: esgWater },
+};
+function bhFrame(dt) {
+  mrBlackHoleUpdate(dt); mrStretch();
+  const car = GAME.car; if (car) { const r = car.root.position.distanceTo(BHOLE.c); AUDIO.rumble(car.bhGone ? 0.25 : clamp(1.2 - r / 500, 0.08, 1)); }
+}
 function mrWorldOn(id) {
   WORLD.megaWorld = id;
   WORLD.sky.visible = false;
   if (WORLD.ground) WORLD.ground.visible = false;
   for (const o of WORLD.scenery || []) o.visible = false;
-  camera.near = 0.25; camera.far = id === 'earth' ? 9000 : id === 'volcano' ? 8000 : id === 'whirl' ? 9600 : 5000; camera.updateProjectionMatrix();
+  const D = MR_DEF[id];
+  camera.near = 0.25; camera.far = D.far; camera.updateProjectionMatrix();
   scene.fog.near = 1e5; scene.fog.far = 2e5;
-  if (id === 'volcano') { scene.fog.color.setHex(THEMES.volcano.fog); scene.fog.near = THEMES.volcano.fogNear; scene.fog.far = THEMES.volcano.fogFar; }
-  if (id === 'whirl') { scene.fog.color.setHex(THEMES.sea.fog); scene.fog.near = THEMES.sea.fogNear; scene.fog.far = THEMES.sea.fogFar; }
+  if (D.fog) { const T = THEMES[D.theme]; scene.fog.color.setHex(T.fog); scene.fog.near = T.fogNear; scene.fog.far = T.fogFar; }
   bgUse(id);
 }
 function mrWorldOff() {
   BHOLE.g = null; VOLC.g = null;
   WHIRL.g = null; WHIRL.F = null; WHIRL.under = false; WHIRL.save = null; WHIRL.uw = null; UWATER.y = -1e9;
+  ESG.g = null; ESG.vortex = 0; ESG.pipe = null;
   const el = $('mrFog'); if (el) { el.style.opacity = '0'; el.style.background = ''; el.style.transition = ''; }
   if (!WORLD.megaWorld) return;
   WORLD.megaWorld = null;
@@ -9820,9 +10842,10 @@ function mrPhysics(car, run, ctl, h, warm) {
       if (q.y < (yD > -1e3 ? yD : 0) - 25 || q.y < -60) removeDyn(o);
     }
   }
+  const D = MR_DEF[info.mr];
   if (warm || car.mrBusy()) {
-    if (info.mr === 'whirl') whirlWater(h);
-    if (!warm) { if (info.mr === 'bh') mrBHPhysics(car, run, h); else if (info.mr === 'volcano') mrVolcPhysics(car, run, h); }
+    if (D.water) D.water(h);
+    if (!warm && D.phys && info.mr !== 'whirl' && info.mr !== 'esgoto') D.phys(car, run, h);
     return;
   }
   // antes do salto final: batidas amassam menos e o tanque não explode (o carro chega inteiro no grande salto)
@@ -9867,9 +10890,7 @@ function mrPhysics(car, run, ctl, h, warm) {
       }
     }
   }
-  if (info.mr === 'bh') mrBHPhysics(car, run, h);
-  else if (info.mr === 'volcano') mrVolcPhysics(car, run, h);
-  else if (info.mr === 'whirl') mrWhirlPhysics(car, run, h);
+  if (D.phys) D.phys(car, run, h);
 }
 // buraco negro: tudo que está perto perde o peso e é puxado para ele; o que encosta no horizonte some
 function mrBHPhysics(car, run, h) {
@@ -9930,6 +10951,11 @@ function mrRun(run, car, dt) {
     if (!E.atm && EARTH.plasma > 0.25) { E.atm = true; callout('ATMOSFERA!', 's2'); }
     if (EARTH.plasma > 0.55) { E.heat = (E.heat || 0) + dt; if (E.heat > 2.2 && !E.fire && !car.fire.on) { E.fire = true; car.ignite('reentry'); } }
     if (!E.cloud && earthAlt(p.x, p.y, p.z) < EARTH.cloudH) { E.cloud = true; callout('NUVENS!', 's3'); EARTH.puffT = 1.3; }
+  } else if (info.mr === 'esgoto') {
+    const wz = TP.waves[0], d0 = TP.decks[0], s = TP.sAtZ(p.z);
+    if (!E.pipe && ESG.pipe && !run.takeoff && s > ESG.pipe.s0 - 4) { E.pipe = true; callout('CANO GIGANTE!', 's2'); }
+    if (!E.drop && !run.takeoff && p.z > d0.z1 - 1) { E.drop = true; callout('CACHOEIRA!', 's2'); AUDIO.whoosh(); }
+    if (!E.waves && wz && p.z > wz[0] + 4 && p.z < wz[1]) { E.waves = true; callout('ONDAS!', 's3'); }
   } else if (info.mr === 'whirl') {
     const wz = TP.waves[0];
     if (!E.whirl && !run.takeoff && p.z > -700) { E.whirl = true; callout('REDEMOINHO!', 's2'); }
@@ -10020,10 +11046,7 @@ function mrFrame(dt) {
     for (const b of fx.blink || []) b.s.material.opacity = Math.sin(now * TAU * b.f) > 0.3 ? 1 : 0.12;
     if (fx.astro) { fx.astro.obj.position.y = fx.astro.y0 + Math.sin(now * 1.2) * 0.4; fx.astro.arm.rotation.z = -2.4 + Math.sin(now * 6) * 0.5; }
   }
-  if (info.mr === 'earth') earthFrame(dt, now);
-  else if (info.mr === 'volcano') volcanoFrame(dt);
-  else if (info.mr === 'whirl') whirlFrame(dt);
-  else { mrBlackHoleUpdate(dt); mrStretch(); const car = GAME.car; if (car) { const r = car.root.position.distanceTo(BHOLE.c); AUDIO.rumble(car.bhGone ? 0.25 : clamp(1.2 - r / 500, 0.08, 1)); } }
+  MR_DEF[info.mr].frame(dt, now);
 }
 function earthFrame(dt, now) {
   const S = BG.sets.earth, E = EARTH, car = GAME.car, cp = camera.position;
@@ -10131,15 +11154,15 @@ function startMega(idx) {
   GAME.megaIdx = idx; Store.set('megaIdx', idx);
   clearLevel();
   const R = MEGA_RAMPS[idx];
-  applyTheme(R.id === 'earth' ? 'day' : R.id === 'volcano' ? 'volcano' : R.id === 'whirl' ? 'sea' : 'space');
+  applyTheme(MR_DEF[R.id].theme);
   mrWorldOn(R.id);
   GAME.levelRoot = new THREE.Group();
   scene.add(GAME.levelRoot);
-  GAME.info = R.id === 'earth' ? mrBuildEarth(GAME.levelRoot, GAME.carIdx) : R.id === 'volcano' ? mrBuildVolcano(GAME.levelRoot, GAME.carIdx) : R.id === 'whirl' ? mrBuildWhirl(GAME.levelRoot, GAME.carIdx) : mrBuildBH(GAME.levelRoot, GAME.carIdx);
+  GAME.info = MR_DEF[R.id].build(GAME.levelRoot, GAME.carIdx);
   const car = GAME.car = new Car(GAME.carIdx, GAME.levelRoot, carPaint(GAME.carIdx));
   car.fullK = (car.spec.full || DESTROY_FULL) * (GAME.dbgFullK || WRECK_FULL) * (R.fullK || 1);
   car.place(0, GAME.info.startY + 0.02, GAME.info.startZ, 0);
-  car.onImpact = onCarImpact; car.onWall = onWallHit; car.onBH = onCarBH; car.onLava = onCarLava; car.onWhirl = onCarWhirl;
+  car.onImpact = onCarImpact; car.onWall = onWallHit; car.onBH = onCarBH; car.onLava = onCarLava; car.onWhirl = onCarWhirl; car.onGoo = onCarGoo;
   car.trick = null; car.onTrick = onCarTrick; car.turboQuiet = !!R.quiet;
   EARTH.plasma = 0; EARTH.puffT = 0; BHOLE.flash = 0;
   GAME.run = {
@@ -10148,7 +11171,7 @@ function startMega(idx) {
     pts: 0, shownPts: 0, dmgMax: 0, liveHits: 0, hitT: 0, pend: 0, pendT: 0, diamond: false,
     springDone: false, turboCall: false, tricks: 0, tgt: 0, tgtDone: false, tgtRing: -1,
     mega: true, orbits: 0, rings: 0, vMax: 0, bhEnd: false, bhEndT: 0, lavaCap: false, lavaEnd: false, lavaEndT: 0,
-    whirlCap: false, whirlEnd: false, whirlEndT: 0, bites: 0,
+    whirlCap: false, whirlEnd: false, whirlEndT: 0, bites: 0, gooCap: false, gooEnd: false, gooEndT: 0, gooPool: false, gooDrain: false,
   };
   $('hPts').textContent = '0';
   $('hDmgMeter').classList.remove('hot', 'full');
@@ -10158,7 +11181,7 @@ function startMega(idx) {
   GAME.timeScale = 1; GAME.slowT = 0; GAME.slowCool = 0; GAME.acc = 0;
   GAME.input.rocketTap = false; GAME.input._nPrev = false;
   const c = GAME.cam;
-  c.mode = 'intro'; c.t = 0; c.shake = 0; c.heading.set(0, 0, 1); c.orbitBase = null; c.vo = 0; c.flipK = 0; c.lakeUnder = false; c.lakeA = 0; c.lakeSide = null; c.mrT = null; c.bhA = null; c.lavaA = null; c.airOff = null; c.bhL = null; c.wL = null; c.wRim = null; c.wUnder = false;
+  c.mode = 'intro'; c.t = 0; c.shake = 0; c.heading.set(0, 0, 1); c.orbitBase = null; c.vo = 0; c.flipK = 0; c.lakeUnder = false; c.lakeA = 0; c.lakeSide = null; c.mrT = null; c.bhA = null; c.lavaA = null; c.airOff = null; c.bhL = null; c.wL = null; c.wRim = null; c.wUnder = false; c.gooA = null;
   const p = car.body.position;
   c.pos.set(p.x + 14, p.y + 6, p.z - 10); c.look.set(p.x, p.y, p.z);
   $('hLvlNum').textContent = 'MEGA RAMPA';
@@ -10184,7 +11207,7 @@ function mrLabels() {
 
 /* ---------- fim da rodada (Mega Rampa) ---------- */
 function mrFinish() {
-  const run = GAME.run, car = GAME.car, info = GAME.info, R = info.ramp, idx = GAME.megaIdx, bh = info.mr === 'bh', vol = info.mr === 'volcano', wh = info.mr === 'whirl';
+  const run = GAME.run, car = GAME.car, info = GAME.info, R = info.ramp, idx = GAME.megaIdx, bh = info.mr === 'bh', vol = info.mr === 'volcano', wh = info.mr === 'whirl', eg = info.mr === 'esgoto';
   car.computeDamage();
   const hits = countHits();
   run.liveHits = hits;
@@ -10194,13 +11217,13 @@ function mrFinish() {
   if (!Number.isFinite(run.dist)) run.dist = 0;
   const dist = Math.round(run.dist * 10) / 10;
   const S = 0.7 * car.damagePct + 30 * Math.min(1, dist / Math.max(10, info.Jt));
-  const stars = run.diamond || car.bhDone || car.lavaDone || car.whirlDone ? 5 : S >= 93 ? 5 : S >= 76 ? 4 : S >= 56 ? 3 : S >= 32 ? 2 : 1;
+  const stars = run.diamond || car.bhDone || car.lavaDone || car.whirlDone || car.gooDone ? 5 : S >= 93 ? 5 : S >= 76 ? 4 : S >= 56 ? 3 : S >= 32 ? 2 : 1;
   const sc = scoreOf(D, dist, hits, run.diamond, run.tgt);
   run.pts = sc.total;
   run.score = { D, dist, hits, stars, S, pts: sc.total, part: sc, diamond: run.diamond };
   run.rec = REC.add({ mg: idx, lv: -1, car: GAME.carIdx, rp: -1, pts: sc.total, dmg: D, dist, dia: run.diamond });
   $('rLevel').textContent = 'MEGA RAMPA · ' + R.name;
-  $('rTitle').textContent = car.bhDone ? 'ENGOLIDO!' : car.lavaDone ? 'DERRETEU!' : car.whirlDone ? 'DEVORADO!' : run.diamond ? 'MEGA DESTRUIÇÃO!' : ['Boa tentativa!', 'Amassou!', 'Que estrago!', 'Destruidor!', 'SUPER ESTRAGO!'][stars - 1];
+  $('rTitle').textContent = car.bhDone ? 'ENGOLIDO!' : car.lavaDone ? 'DERRETEU!' : car.whirlDone ? 'DEVORADO!' : car.gooDone ? 'AFUNDOU NA GOSMA!' : run.diamond ? 'MEGA DESTRUIÇÃO!' : ['Boa tentativa!', 'Amassou!', 'Que estrago!', 'Destruidor!', 'SUPER ESTRAGO!'][stars - 1];
   $('rDmg').textContent = D + '%';
   $('rDistBox').firstElementChild.textContent = bh ? 'Voo' : 'Salto';
   $('rDist').textContent = Math.round(dist) + ' m';
@@ -10210,6 +11233,10 @@ function mrFinish() {
     $('rTgtBox').firstElementChild.textContent = 'Voltas';
     $('rTgt').textContent = String(run.orbits || 0);
     $('rTgtWhy').textContent = run.tgt > 0 ? fmt(run.tgt) + ' pts' : '';
+  } else if (eg) {
+    $('rTgtBox').firstElementChild.textContent = 'Gosma';
+    $('rTgt').textContent = run.gooCap ? fmt(run.tgt) : '—';
+    $('rTgtWhy').textContent = run.gooDrain ? 'o ralo engoliu' : run.gooCap ? (run.gooPool ? 'caiu na gosma' : 'afundou na lama') : 'não chegou';
   } else if (wh) {
     $('rTgtBox').firstElementChild.textContent = 'Mordidas';
     $('rTgt').textContent = run.whirlCap ? String(run.bites || 0) : '—';
@@ -10235,6 +11262,8 @@ function mrFinish() {
   box.innerHTML = '';
   for (let i = 0; i < 5; i++) { const s = document.createElement('span'); s.innerHTML = i < stars ? STAR_SVG : STAR_OFF; box.appendChild(s.firstChild); }
   $('bNextLvl').textContent = MEGA_RAMPS[(idx + 1) % MEGA_RAMPS.length].name + ' ›';
+  // toque educativo no esgoto
+  const note = $('rNote'); note.textContent = eg ? 'Esgoto vai para a estação de tratamento: assim o rio fica limpo! 💧' : ''; note.hidden = !eg;
   mrLabels();
   setState('result');
   if (run.diamond) showMega(); else revealResult();
@@ -10278,6 +11307,8 @@ const MR_ART = {
     legs: [{ path: 0, dur: 1.7, ease: 1.7 }, { fall: [[130, 89], [142, 101]], dur: 0.32 }, { path: 1, dur: 0.6 }, { jump: [[208, 113], [236, 127]], h: 15, dur: 0.95 }, { stop: [236, 127], dur: 1.83 }] },
   bh: { period: 5.6, ramp: [[[18, 26], [32, 26], [52, 32], [100, 74], [130, 94], [150, 100], [161, 96]]],
     legs: [{ path: 0, dur: 2.0, ease: 1.6 }, { spiral: [238, 86], r0: 70, turns: 2.3, dur: 2.3 }, { gone: true, dur: 1.3 }] },
+  esgoto: { period: 6.0, ramp: [[[15, 22], [30, 22], [50, 34], [101, 96]], [[112, 118], [150, 132], [178, 136], [192, 130]]],
+    legs: [{ path: 0, dur: 1.7, ease: 1.6 }, { fall: [[101, 96], [112, 118]], dur: 0.32 }, { path: 1, dur: 0.6 }, { jump: [[192, 130], [240, 146]], h: 26, dur: 0.95 }, { sink: [240, 146], dur: 1.4 }, { gone: true, dur: 1.03 }] },
   whirl: { period: 5.8, ramp: [[[10, 40], [26, 40], [46, 48], [96, 90], [124, 104], [142, 106], [154, 100]]],
     legs: [{ path: 0, dur: 2.0, ease: 1.6 }, { jump: [[154, 100], [170, 130]], h: 24, dur: 0.85 }, { spiral: [236, 134], r0: 66, turns: 1.7, dur: 1.85, from: [170, 130], ry: 0.31 }, { gone: true, dur: 1.1 }] },
   volcano: { period: 5.6, ramp: [[[14, 34], [30, 34], [50, 42], [104, 96], [132, 112], [150, 114], [162, 108]]],
@@ -10337,6 +11368,11 @@ function mrCardArt(id, paint) {
     body += mrHoleSVG(uid, 238, 86, 1);
     for (const pts of A.ramp) body += `<path d="${mrRampPath(pts)}" fill="none" stroke="#14171c" stroke-width="7.5" stroke-linejoin="round" stroke-linecap="round"/><path d="${mrRampPath(pts)}" fill="none" stroke="#ff4fd8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/><path d="${mrRampPath(pts.map(p => [p[0], p[1] - 1.4]))}" fill="none" stroke="#3ee6ff" stroke-width="1" opacity="0.9"/>`;
     body += `<path d="${artCircle(14, 34, 9)}" fill="#5b5262" stroke="#14171c" stroke-width="1"/>`;
+  }
+  if (id === 'esgoto') {
+    body = mrEsgotoSVG(uid);
+    for (const pts of A.ramp) body += `<path d="${mrRampPath(pts)}" fill="none" stroke="#14171c" stroke-width="7.5" stroke-linejoin="round" stroke-linecap="round"/><path d="${mrRampPath(pts)}" fill="none" stroke="#9be22c" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>`;
+    body += `<path d="M64 74L102 98" stroke="#14171c" stroke-width="15" stroke-linecap="round" opacity="0.55"/><path d="M194 128Q218 112 238 140" fill="none" stroke="#fff8e7" stroke-width="1.8" stroke-dasharray="3 3.5" opacity="0.85"/>`;
   }
   if (id === 'whirl') {
     body = mrWhirlSVG(uid);
@@ -10573,7 +11609,7 @@ function setLoadMsg(t) { const el = $('loadMsg'); if (el) el.textContent = t; }
    Ao abrir e ao voltar para o app, lê version.txt. Se a versão publicada for outra, recarrega
    num endereço novo (?v=...) para não usar a cópia guardada no celular. No meio da corrida
    espera voltar para um menu. Ao publicar: aumente APP_VER aqui e o número em version.txt. */
-const APP_VER = '6.1';
+const APP_VER = '7.0';
 const UPD = { pending: null, busy: false, last: 0 };
 const UPD_MENU = ['title', 'garage', 'levels', 'records', 'ramp', 'megasel'];
 function updOn() { return /^https?:$/.test(location.protocol) && !/claude|anthropic/i.test(location.hostname); }
@@ -10932,6 +11968,8 @@ function physicsStep(h, warm) {
   else if (car.lavaGone) car.body.velocity.set(0, 0, 0);
   else if (car.whirlM) car.whirlAdvance(h); // no redemoinho o carro gira, é engolido e afunda
   else if (car.whirlGone) car.body.velocity.set(0, 0, 0);
+  else if (car.gooM) car.gooAdvance(h); // na gosma o carro afunda, o ralo engole e o cano cospe no rio
+  else if (car.gooGone) car.body.velocity.set(0, 0, 0);
   if (info.mr === 'whirl' && WHIRL.F) whirlFeastStep(h, car); // os monstros lá no fundo
   PHY.time += h;
   nanGuard(car);
@@ -11168,7 +12206,7 @@ function liveScore(run, car, dt) {
   }
   run.pts = scoreOf(run.dmgMax, run.dist, run.liveHits, run.diamond, run.tgt).total;
   run.pendT -= dt;
-  if (run.pend >= 1 && run.pendT <= 0) { popPoints(run.pend); run.pend = 0; run.pendT = car.bhM || car.lavaM || car.whirlM ? 1.1 : 0.45; }
+  if (run.pend >= 1 && run.pendT <= 0) { popPoints(run.pend); run.pend = 0; run.pendT = car.bhM || car.lavaM || car.whirlM || car.gooM ? 1.1 : 0.45; }
 }
 function popPoints(n, gem) {
   const car = GAME.car;
@@ -11316,11 +12354,13 @@ function updateRun(dt, sdt) {
     const lavaOver = info.mr === 'volcano' && run.lavaCap ? (run.lavaEnd && (run.lavaEndT = (run.lavaEndT || 0) + sdt) > 1.3) || run.t > 170 : false;
     // redemoinho: acaba depois que os monstros comem o carro
     const whirlOver = info.mr === 'whirl' && run.whirlCap ? (run.whirlEnd && (run.whirlEndT = (run.whirlEndT || 0) + sdt) > 1.6) || run.t > 190 : false;
-    const scripted = info.mr === 'bh' || run.lavaCap || run.whirlCap;
-    const normalOver = !scripted && (run.still > (run.takeoff ? 1.4 : 2.6) || run.slow > 2.6 || timeout || p.y < (info.mr === 'whirl' ? -150 : -25) || Math.abs(p.x) > 140);
-    if (!hold && (bhOver || lavaOver || whirlOver || normalOver)) {
+    // esgoto: acaba quando o que sobrou cai no rio (ou afunda na lama)
+    const gooOver = info.mr === 'esgoto' && run.gooCap ? (run.gooEnd && (run.gooEndT = (run.gooEndT || 0) + sdt) > 1.3) || run.t > 170 : false;
+    const scripted = info.mr === 'bh' || run.lavaCap || run.whirlCap || run.gooCap;
+    const normalOver = !scripted && (run.still > (run.takeoff ? 1.4 : 2.6) || run.slow > 2.6 || timeout || p.y < (info.mr === 'whirl' ? -150 : -25) || Math.abs(p.x) > (info.mr === 'whirl' || info.mr === 'esgoto' ? 900 : 140));
+    if (!hold && (bhOver || lavaOver || whirlOver || gooOver || normalOver)) {
       setState('ending'); run.endT = 0;
-      GAME.cam.mode = run.shark ? 'lake' : info.mr === 'bh' ? 'bh' : run.lavaCap ? 'lava' : run.whirlCap ? 'whirl' : 'orbit'; GAME.cam.orbitBase = Math.atan2(GAME.cam.pos.x - p.x, GAME.cam.pos.z - p.z); GAME.cam.t = 0;
+      GAME.cam.mode = run.shark ? 'lake' : info.mr === 'bh' ? 'bh' : run.lavaCap ? 'lava' : run.whirlCap ? 'whirl' : run.gooCap ? 'goo' : 'orbit'; GAME.cam.orbitBase = Math.atan2(GAME.cam.pos.x - p.x, GAME.cam.pos.z - p.z); GAME.cam.t = 0;
       $('air').hidden = true;
       AUDIO.stopLoops();
       if (WORLD.crowd) WORLD.crowd.excite = 1;
@@ -11385,6 +12425,7 @@ function finishRun() {
 
 // estrelas acendendo + pontos somando por partes + selo de recorde
 function revealResult() {
+  if (GAME.mode !== 'mega') $('rNote').hidden = true;
   const run = GAME.run, car = GAME.car, sc = run && run.score;
   if (!sc) return;
   const tok = GAME.resultTok = (GAME.resultTok || 0) + 1;
@@ -11450,7 +12491,7 @@ function recordBadge(ok) {
 // tela cheia do prêmio; tocar em qualquer lugar (ou PEGAR!) guarda o diamante
 function showMega() {
   const m = $('mega'), n = REC.data.dia;
-  $('megaSub').textContent = GAME.car && GAME.car.sharkDone ? 'O tubarão destruiu 100% do carro!' : GAME.car && GAME.car.bhDone ? 'O buraco negro engoliu o carro!' : GAME.car && GAME.car.lavaDone ? 'A lava derreteu o carro!' : GAME.car && GAME.car.whirlDone ? 'O megalodon e o mosassauro devoraram o carro!' : 'Você destruiu 100% do carro!';
+  $('megaSub').textContent = GAME.car && GAME.car.sharkDone ? 'O tubarão destruiu 100% do carro!' : GAME.car && GAME.car.bhDone ? 'O buraco negro engoliu o carro!' : GAME.car && GAME.car.lavaDone ? 'A lava derreteu o carro!' : GAME.car && GAME.car.whirlDone ? 'O megalodon e o mosassauro devoraram o carro!' : GAME.car && GAME.car.gooDone ? 'O esgoto engoliu 100% do carro!' : 'Você destruiu 100% do carro!';
   $('megaCount').innerHTML = n <= 1 ? 'Seu primeiro Mega Diamante!' : 'Agora você tem <b>' + fmt(n) + '</b> Mega Diamantes!';
   const sp = $('megaSpk');
   sp.innerHTML = '';
@@ -11539,8 +12580,10 @@ function updateCamera(dt) {
   if (mrI === 'bh' && (car.bhM || car.bhGone) && c.mode !== 'bh') c.mode = 'bh';
   if (mrI === 'volcano' && (car.lavaM || car.lavaGone) && c.mode !== 'lava') c.mode = 'lava';
   if (mrI === 'whirl' && (car.whirlM || car.whirlGone) && c.mode !== 'whirl') c.mode = 'whirl';
+  if (mrI === 'esgoto' && (car.gooM || car.gooGone) && c.mode !== 'goo') c.mode = 'goo';
   if (c.mode === 'bh') { mrBHCam(c, dt, P, car, portrait); fov = portrait ? 76 : 62; }
   else if (c.mode === 'lava') { mrLavaCam(c, dt, P, car, portrait); fov = portrait ? 74 : 60; }
+  else if (c.mode === 'goo') { mrGooCam(c, dt, P, car, portrait); fov = portrait ? 74 : 60; }
   else if (c.mode === 'whirl') { mrWhirlCam(c, dt, P, car, portrait); fov = car.whirlM && car.whirlM.phase !== 'feast' ? (portrait ? 76 : 62) : (portrait ? 70 : 56); }
   else if (c.mode === 'intro' && mrI) { mrIntroCam(c, dt, P, scale, portrait); if (GAME.state === 'run') c.mode = 'chase'; }
   else if (c.mode === 'chase' && mrI && run && !run.takeoff) {
@@ -11648,9 +12691,9 @@ function updateHUD() {
   const lbl = deck ? 'RAMPA' : 'SALTO';
   if (run._lbl !== lbl) { run._lbl = lbl; $('hDistLbl').textContent = lbl; }
   $('hDist').textContent = (deck ? Math.max(0, Math.round(GAME.info.megaP.remainAtZ(car.body.position.z))) : Math.round(run.dist)) + ' m';
-  const air = run.takeoff && !run.landed && GAME.state === 'run' && !run.bhCap && !run.lavaCap && !run.whirlCap;
+  const air = run.takeoff && !run.landed && GAME.state === 'run' && !run.bhCap && !run.lavaCap && !run.whirlCap && !run.gooCap;
   $('air').hidden = !air;
-  const cine = !!(run.bhCap || run.lavaCap || run.whirlCap);
+  const cine = !!(run.bhCap || run.lavaCap || run.whirlCap || run.gooCap);
   if (run._cine !== cine) { run._cine = cine; $('hud').classList.toggle('cine', cine); }
   const rollUI = air && !(car.trick && car.trick.state === 'on');
   if (run._rollUI !== rollUI) { run._rollUI = rollUI; $('hud').classList.toggle('inair', rollUI); }
@@ -12281,7 +13324,7 @@ function onResize() {
 window.__RR = {
   GAME, LEVELS, CAR_SPECS, WRECK_T, PHY, TRAPS, startLevel, setState, REC, GEM3D, SCORE, scoreOf, countHits, showMega, closeMega, renderRecords, clearLevel,
   RAMPS, ART, openRamp, pickRamp, artSVG, artPose, predictJump, rampProfile, FX, LAKE, SHARK,
-  MEGA_RAMPS, startMega, mrProfile, BG, BHOLE, EARTH, VOLC, volcGroundY, WHIRL, whirlSurfY, buildMegaGrid, pickMega, renderWorld: () => renderWorld(),
+  MEGA_RAMPS, startMega, mrProfile, BG, BHOLE, EARTH, VOLC, volcGroundY, WHIRL, whirlSurfY, ESG, buildMegaGrid, pickMega, renderWorld: () => renderWorld(),
   camera: () => camera, scene: () => scene, buildWheelMesh, buildCarVisual, CARMAT,
   render() { renderWorld(); },
   rinfo() { const i = renderer.info.render; return { calls: i.calls, tris: i.triangles }; },
