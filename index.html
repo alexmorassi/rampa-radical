@@ -481,7 +481,7 @@ h2 { margin: 0; text-wrap: balance; }
 }
 
 /* ---------- escolha da Mega Rampa ---------- */
-.mega-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: min(860px, 100%); padding: 10px 4px 12px; flex: 0 1 auto; min-height: 0; }
+.mega-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: min(1000px, 100%); padding: 10px 4px 12px; flex: 0 1 auto; min-height: 0; }
 .mcard .ramp-art { background: #050a18; }
 .mcard .ramp-txt b { font-size: clamp(18px, 3vw, 28px); }
 .mcard .ramp-txt span { font-size: 14px; }
@@ -492,7 +492,7 @@ h2 { margin: 0; text-wrap: balance; }
   .mcard .ramp-art { width: min(46%, 200px); }
 }
 @media (max-height: 460px) {
-  .mega-grid { gap: 12px; padding-top: 6px; padding-bottom: 6px; width: min(560px, 100%); }
+  .mega-grid { gap: 10px; padding-top: 6px; padding-bottom: 6px; width: min(820px, 100%); }
   .mcard .ramp-txt span { font-size: 12px; }
 }
 /* nuvens: tela branca rápida ao atravessar */
@@ -538,7 +538,7 @@ h2 { margin: 0; text-wrap: balance; }
     <div class="t-bottom">
       <div class="modes" role="group" aria-label="Escolha o modo de jogo">
         <button class="mode" id="bModeN" style="--rc:#ffc21a" aria-label="Modo normal: 13 fases com rampas e obstáculos"><span class="m-art" id="mArtN"></span><span class="m-txt"><b>NORMAL</b><span>13 fases com rampas</span></span></button>
-        <button class="mode" id="bModeM" style="--rc:#c07bff" aria-label="Modo mega rampa: Planeta Terra e Buraco Negro"><span class="m-art" id="mArtM"></span><span class="m-txt"><b>MEGA RAMPA</b><span>Planeta Terra e Buraco Negro</span></span></button>
+        <button class="mode" id="bModeM" style="--rc:#c07bff" aria-label="Modo mega rampa: Planeta Terra, Buraco Negro e Vulcão"><span class="m-art" id="mArtM"></span><span class="m-txt"><b>MEGA RAMPA</b><span>Terra, Buraco Negro e Vulcão</span></span></button>
       </div>
       <button class="btn rec" id="bRecords"><span class="tro-ico" id="tRecIco"></span>RECORDES<span class="cnt" id="tGemCnt" hidden></span></button>
       <p class="hint" id="rotHint" hidden>Gire o celular para jogar deitado.</p>
@@ -2725,9 +2725,9 @@ class Car {
     this.wreckB = wb;
     this.destroyPct = Math.min(100, Math.floor(100 * clamp((raw + wb) / (this.fullK || this.spec.full || DESTROY_FULL), 0, 1) + 0.5));
     // o tubarão do lago comeu o carro inteiro
-    if (this.sharkDone || this.bhDone) { this.destroyPct = 100; this.damagePct = 100; }
-    // na espiral do buraco negro o 100% fica para o fim (logo antes de ser engolido)
-    else if (this.bhM) this.destroyPct = Math.min(this.destroyPct, 96);
+    if (this.sharkDone || this.bhDone || this.lavaDone) { this.destroyPct = 100; this.damagePct = 100; }
+    // na espiral do buraco negro (e afundando na lava) o 100% fica para o fim
+    else if (this.bhM || this.lavaM) this.destroyPct = Math.min(this.destroyPct, 96);
   }
 
   // 100%: o que ainda resta se desmancha (vidros estouram, painéis voam um a um)
@@ -4154,6 +4154,7 @@ const THEMES = {
   sunset:   { top: 0x2d3f7a, hor: 0xffa565, sun: 0xffb27a, sunI: 1.85, hemiS: 0xffc9a0, hemiG: 0x4c5a35, hemiI: 0.62, fog: 0xf0a77a, dir: [0.55, 0.32, -0.6], exp: 1.05, grass: 0xf0d8b8 },
   overcast: { top: 0x7d8a99, hor: 0xd2d8de, sun: 0xf2f4f6, sunI: 1.15, hemiS: 0xe4eaf0, hemiG: 0x66704f, hemiI: 1.0, fog: 0xcfd6dc, dir: [0.3, 0.9, -0.3], exp: 1.05, grass: 0xe4ebe0 },
   space:    { top: 0x07051a, hor: 0x2a1640, sun: 0xffe2c4, sunI: 1.5, hemiS: 0x7a68b0, hemiG: 0x1a1024, hemiI: 0.5, fog: 0x05040c, dir: [0.35, 0.7, -0.62], exp: 1.08, grass: 0x333333, fogNear: 1e5, fogFar: 2e5 },
+  volcano:  { top: 0x140716, hor: 0xb8471f, sun: 0xffa060, sunI: 1.55, hemiS: 0xffa878, hemiG: 0x2a1410, hemiI: 0.78, fog: 0x6a2616, dir: [-0.35, 0.5, -0.8], exp: 1.05, grass: 0x444444, fogNear: 1500, fogFar: 7500 },
   night:    { top: 0x03060f, hor: 0x16234a, sun: 0xe8eeff, sunI: 0.5, hemiS: 0x3b4f8f, hemiG: 0x0c0f16, hemiI: 0.42, fog: 0x0a1228, dir: [-0.32, 0.62, 0.62], exp: 1.15, grass: 0x55657e, night: true, fogNear: 70, fogFar: 560 },
 };
 
@@ -6706,10 +6707,12 @@ function buildLevel(levelIdx, carIdx, root, rampIdx = 0) {
      gira em volta, é esticado ("vira espaguete") e engolido (sempre 100%).
    ============================================================ */
 const MEGA_RAMPS = [
-  { id: 'earth', name: 'Planeta Terra', sub: 'Do espaço até a Terra!', col: '#48c2f0', mega: true, turbo: 48, quiet: true, fullK: 1.06, lipY: 30, W: 12, wallH: 2.6,
+  { id: 'earth', name: 'Planeta Terra', sub: 'Do espaço até a Terra!', abbr: 'T', col: '#48c2f0', mega: true, turbo: 48, quiet: true, fullK: 1.06, lipY: 30, W: 12, wallH: 2.6,
     tip: 'Do espaço até a Terra! Toque no NITRO para ir ainda mais rápido.' },
-  { id: 'bh', name: 'Buraco Negro', sub: 'Ele puxa e engole tudo!', col: '#c07bff', mega: true, turbo: 50, fullK: 1, lipY: 600, W: 12, wallH: 2.6,
+  { id: 'bh', name: 'Buraco Negro', sub: 'Ele puxa e engole tudo!', abbr: 'BN', col: '#c07bff', mega: true, turbo: 50, fullK: 1, lipY: 600, W: 12, wallH: 2.6,
     tip: 'Cuidado: o buraco negro puxa e engole tudo!' },
+  { id: 'volcano', name: 'Vulcão', sub: 'Pule dentro da lava!', abbr: 'V', col: '#ff6a2a', mega: true, turbo: 48, fullK: 1, lipY: 320, W: 12, wallH: 2.6,
+    tip: 'Pule dentro do vulcão em erupção! Toque no NITRO para ir mais rápido.' },
 ];
 const MR = { tp: {}, tex: {}, mats: {} };
 
@@ -6730,6 +6733,14 @@ function mrPieces(id) {
     { L: 200, a: -14 },
     { L: 470, a: -14, waves: { A: 0.4, lam: 72 } },
     { L: 230, a: 14 },
+  ];
+  if (id === 'volcano') return [
+    { L: 26, a: 0 },
+    { L: 90, a: -30 },
+    { L: 480, a: -30 },
+    { L: 160, a: -16 },
+    { L: 240, a: -16, waves: { A: 0.4, lam: 72 } },
+    { L: 230, a: 13 },
   ];
   return [
     { L: 26, a: 0 },
@@ -6922,6 +6933,15 @@ function mrDeckTex(id) {
     g.fillStyle = '#f5f2e8'; g.fillRect(0, 0, 14, 256); g.fillRect(498, 0, 14, 256);
     g.fillStyle = '#ffc21a'; g.fillRect(18, 0, 7, 256); g.fillRect(487, 0, 7, 256);
     g.fillStyle = 'rgba(245,242,232,0.75)'; for (let y = 0; y < 256; y += 64) { g.fillRect(126, y, 8, 34); g.fillRect(378, y, 8, 34); }
+  } else if (id === 'volcano') {
+    g.fillStyle = '#2a1d19'; g.fillRect(0, 0, 512, 256);
+    noiseFill(g, 512, 256, 0, 16, 321, 2);
+    g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(0, 0, 512, 5); g.fillRect(0, 128, 512, 3);
+    g.fillStyle = '#ff7a1a'; for (const y of [40, 168]) mrChevron(g, 256, y, 60, 48, 18);
+    g.fillStyle = '#ffc21a'; g.fillRect(0, 0, 12, 256); g.fillRect(500, 0, 12, 256);
+    g.fillStyle = '#14171c'; for (let y = 0; y < 256; y += 32) { g.fillRect(0, y, 12, 16); g.fillRect(500, y + 16, 12, 16); }
+    g.fillStyle = '#ff5a1f'; g.fillRect(16, 0, 6, 256); g.fillRect(490, 0, 6, 256);
+    g.fillStyle = 'rgba(255,196,120,0.7)'; for (let y = 0; y < 256; y += 64) { g.fillRect(126, y, 8, 34); g.fillRect(378, y, 8, 34); }
   } else {
     g.fillStyle = '#160d2b'; g.fillRect(0, 0, 512, 256);
     noiseFill(g, 512, 256, 0, 10, 311, 1);
@@ -6979,13 +6999,14 @@ function mrNoiseTex() {
 /* ---------- visual da pista ---------- */
 function mrStyle(id) {
   if (MR.mats[id]) return MR.mats[id];
-  const earth = id === 'earth';
+  const earth = id === 'earth', vol = id === 'volcano';
+  const pick = (a, b, c) => (earth ? a : vol ? c : b);
   const M = {
     deck: new THREE.MeshStandardMaterial({ map: mrDeckTex(id), roughness: 0.6, metalness: 0.15 }),
-    side: new THREE.MeshStandardMaterial({ color: earth ? 0xe9edf2 : 0x2a1b48, roughness: 0.5, metalness: 0.35, side: THREE.DoubleSide }),
-    under: new THREE.MeshStandardMaterial({ color: earth ? 0x59657a : 0x1d1233, roughness: 0.55, metalness: 0.6, side: THREE.DoubleSide }),
-    neon: new THREE.MeshBasicMaterial({ color: earth ? 0x5ee7ff : 0xff4fd8, toneMapped: false }),
-    neon2: new THREE.MeshBasicMaterial({ color: earth ? 0xffc21a : 0x3ee6ff, toneMapped: false }),
+    side: new THREE.MeshStandardMaterial({ color: pick(0xe9edf2, 0x2a1b48, 0x4a3a34), roughness: 0.5, metalness: 0.35, side: THREE.DoubleSide }),
+    under: new THREE.MeshStandardMaterial({ color: pick(0x59657a, 0x1d1233, 0x3a2c27), roughness: 0.55, metalness: 0.6, side: THREE.DoubleSide }),
+    neon: new THREE.MeshBasicMaterial({ color: pick(0x5ee7ff, 0xff4fd8, 0xff7a1a), toneMapped: false }),
+    neon2: new THREE.MeshBasicMaterial({ color: pick(0xffc21a, 0x3ee6ff, 0xffc21a), toneMapped: false }),
     wall: null, lamp: null,
   };
   {
@@ -6994,9 +7015,9 @@ function mrStyle(id) {
     gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.08, 'rgba(255,255,255,0.35)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.08)'); gr.addColorStop(1, 'rgba(255,255,255,0.4)');
     g.fillStyle = gr; g.fillRect(0, 0, 4, 64);
     const t = canvasTex(c, { clamp: true }); t.userData.shared = true;
-    M.wall = new THREE.MeshBasicMaterial({ map: t, color: earth ? 0x5ee7ff : 0xc07bff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+    M.wall = new THREE.MeshBasicMaterial({ map: t, color: pick(0x5ee7ff, 0xc07bff, 0xff6a1a), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
   }
-  M.lamp = new THREE.PointsMaterial({ map: mrGlowTex(), color: earth ? 0xbff6ff : 0xff9cf0, size: 3.2, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+  M.lamp = new THREE.PointsMaterial({ map: mrGlowTex(), color: pick(0xbff6ff, 0xff9cf0, 0xffc27a), size: 3.2, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
   for (const k in M) M[k].userData.shared = true;
   return (MR.mats[id] = M);
 }
@@ -7356,7 +7377,7 @@ function bgUse(kind) {
   bgEnsure();
   for (const k in BG.sets) { BG.sets[k].follow.visible = BG.sets[k].world.visible = k === kind; }
   if (!BG.sets[kind]) {
-    const S = BG.sets[kind] = kind === 'earth' ? bgBuildEarth() : bgBuildBH();
+    const S = BG.sets[kind] = kind === 'earth' ? bgBuildEarth() : kind === 'volcano' ? bgBuildVolcano() : bgBuildBH();
     BG.scene.add(S.follow); BG.scene.add(S.world);
     S.follow.traverse(o => { if (o.material) o.material.userData.shared = true; if (o.geometry) o.geometry.userData.shared = true; });
     S.world.traverse(o => { if (o.material) o.material.userData.shared = true; if (o.geometry) o.geometry.userData.shared = true; });
@@ -7981,6 +8002,524 @@ Object.assign(Car.prototype, {
 });
 
 /* ============================================================
+   Mega Rampa do Vulcão: montanha da largada, vulcão em erupção com lago de
+   lava na cratera, rios de lava, chafariz de lava, bombas de lava e fumaça.
+   O carro salta da borda, cai dentro da cratera, derrete na lava e no fim o
+   vulcão entra em erupção e cospe o que sobrou
+   ============================================================ */
+const VOLC = { c: new THREE.Vector3(0, 0, 330), yL: 60, RL: 75, Rrim: 105, Hr: 115, Hfar: 340, Rb: 520,
+  mz: -1200, mH: 520, mR: 900, trackY: null, erupt: 0, t: 0, g: null, cull: 0, bombT: 0, near: 0 };
+// ruído suave barato (soma de senos) para o relevo
+function volcNoise(x, z) {
+  return Math.sin(x * 0.013 + z * 0.007) * 3.2 + Math.sin(x * 0.031 - z * 0.023 + 1.3) * 1.6 + Math.sin(-x * 0.057 + z * 0.049 + 2.1) * 0.8;
+}
+// perfil do vulcão pela distância "d" ao centro da cratera
+function volcConeY(d, ca = -1) {
+  const V = VOLC, Hr = V.Hr + V.Hfar * Math.pow(Math.max(0, ca), 0.85);
+  if (d >= V.Rb) return 0;
+  if (d >= V.Rrim) return Hr * Math.pow((V.Rb - d) / (V.Rb - V.Rrim), 1.25);
+  if (d >= V.RL) return lerp(V.yL - 2, Hr, smooth01((d - V.RL) / (V.Rrim - V.RL)));
+  return V.yL - 4;
+}
+// montanha da largada (embaixo do começo da pista)
+function volcMountY(x, z) {
+  const V = VOLC, d = Math.hypot(x * 1.15, z - V.mz);
+  if (d > V.mR) return 0;
+  return V.mH * Math.pow(1 - d / V.mR, 1.2);
+}
+// altura do chão em (x, z): planície, montanha, vulcão e um vale embaixo da pista
+function volcGroundY(x, z) {
+  const V = VOLC;
+  let y = volcNoise(x, z) * 0.6 + 1;
+  const m = volcMountY(x, z);
+  if (m > 0) y = Math.max(y, m + volcNoise(z, x) * 2.2);
+  const d = Math.hypot(x - V.c.x, z - V.c.z), ca = d > 1 ? (z - V.c.z) / d : 0;
+  if (d < V.Rrim) y = volcConeY(d, ca);
+  else if (d < V.Rb) y = Math.max(y, volcConeY(d, ca) + volcNoise(x * 1.7, z * 1.7) * 1.4 * smooth01((d - V.Rrim) / 40));
+  const ty = V.trackY ? V.trackY(z) : -Infinity;
+  if (ty > -1e6 && d > V.Rrim + 30) {
+    const k = 1 - smooth01((Math.abs(x) - 26) / 90);
+    if (k > 0 && y > ty - 16) y = lerp(y, ty - 16, k);
+  }
+  return y;
+}
+// rocha vulcânica: cinza-escuro com rachaduras de lava (a rachadura brilha)
+function volcRockTex() {
+  if (MR.tex.vrock) return MR.tex.vrock;
+  const S = 512, c = makeCanvas(S, S), g = c.getContext('2d'), ce = makeCanvas(S, S), ge = ce.getContext('2d');
+  g.fillStyle = '#3a302c'; g.fillRect(0, 0, S, S);
+  noiseFill(g, S, S, 0, 34, 909, 2);
+  const rnd = mulberry32(404);
+  for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '20,16,15' : '82,66,58'},${(0.25 + rnd() * 0.3).toFixed(2)})`; g.beginPath(); g.ellipse(rnd() * S, rnd() * S, 18 + rnd() * 60, 10 + rnd() * 40, rnd() * 3, 0, TAU); g.fill(); }
+  ge.fillStyle = '#000'; ge.fillRect(0, 0, S, S);
+  const crack = (x, y, a, n, w) => {
+    const pts = [[x, y]];
+    for (let k = 0; k < n; k++) { a += (rnd() - 0.5) * 1.1; x += Math.cos(a) * 14; y += Math.sin(a) * 14; pts.push([x, y]); }
+    for (const [ctx, col, lw] of [[g, '#160c08', w + 2], [ge, '#ff7a1a', w], [ge, '#ffd37a', Math.max(0.8, w * 0.35)]]) {
+      ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { ctx.beginPath(); pts.forEach(([px, py], j) => (j ? ctx.lineTo(px + ox, py + oy) : ctx.moveTo(px + ox, py + oy))); ctx.stroke(); }
+    }
+  };
+  for (let i = 0; i < 9; i++) crack(rnd() * S, rnd() * S, rnd() * TAU, 6 + Math.floor(rnd() * 10), 2 + rnd() * 2.5);
+  const t = canvasTex(c), te = canvasTex(ce);
+  t.userData.shared = true; te.userData.shared = true;
+  return (MR.tex.vrock = { map: t, emi: te });
+}
+// lava animada (lago da cratera, rios e poças): crosta escura boiando em lava brilhante
+function volcLavaMat() {
+  if (MR.mats.lava) return MR.mats.lava;
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uT: { value: 0 }, uN: { value: mrNoiseTex() }, uS: { value: 1 / 26 } },
+    vertexShader: 'uniform float uS; varying vec2 vU; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vU = w.xz * uS; gl_Position = projectionMatrix * viewMatrix * w; }',
+    fragmentShader: 'uniform float uT; uniform sampler2D uN; varying vec2 vU;\n' +
+      'void main(){ float n1 = texture2D(uN, vU * 0.9 + vec2(uT * 0.021, uT * 0.013)).r; float n2 = texture2D(uN, vU * 2.3 - vec2(uT * 0.033, -uT * 0.017)).r;\n' +
+      ' float n = n1 * 0.7 + n2 * 0.5; float crust = smoothstep(0.58, 0.8, n) * 0.85;\n' +
+      ' vec3 hot = mix(vec3(1.0, 0.9, 0.45), vec3(1.0, 0.42, 0.05), smoothstep(0.12, 0.46, n));\n' +
+      ' float pulse = 0.9 + 0.1 * sin(uT * 2.0 + n1 * 9.0);\n' +
+      ' vec3 col = mix(hot * 1.5 * pulse, vec3(0.17, 0.05, 0.03), crust);\n' +
+      ' gl_FragColor = vec4(col, 1.0); }',
+    toneMapped: false,
+  });
+  m.userData.shared = true;
+  return (MR.mats.lava = m);
+}
+// relevo inteiro (uma malha só) com a textura de rocha
+function volcTerrain(parent, z0, z1) {
+  const W = 3400, L = z1 - z0, nx = 150, nz = Math.round(L / 20);
+  const g = new THREE.PlaneGeometry(W, L, nx, nz);
+  g.rotateX(-Math.PI / 2); g.translate(0, 0, (z0 + z1) / 2);
+  const p = g.attributes.position, uv = g.attributes.uv, col = new Float32Array(p.count * 3), V = VOLC;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i), y = volcGroundY(x, z);
+    p.setY(i, y); uv.setXY(i, x / 72, z / 72);
+    const d = Math.hypot(x - V.c.x, z - V.c.z);
+    // perto da cratera e por dentro dela a rocha fica avermelhada (calor)
+    const hot = d < V.Rrim + 60 ? 1 - smooth01((d - V.RL) / (V.Rrim + 60 - V.RL)) : 0;
+    const hi = smooth01((y - 300) / 240);
+    col[i * 3] = lerp(1, 1.25, hot) * lerp(1, 0.8, hi); col[i * 3 + 1] = lerp(1, 0.72, hot) * lerp(1, 0.8, hi); col[i * 3 + 2] = lerp(1, 0.6, hot) * lerp(1, 0.85, hi);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  const T = volcRockTex();
+  const mat = mrMat('vterrain', () => new THREE.MeshStandardMaterial({ map: T.map, emissiveMap: T.emi, emissive: 0xff5a1a, emissiveIntensity: 1.1, vertexColors: true, roughness: 0.95 }));
+  const m = new THREE.Mesh(g, mat); m.receiveShadow = true; parent.add(m);
+  return m;
+}
+// rios de lava descendo pelas encostas do vulcão
+function volcRivers(parent) {
+  const V = VOLC, mat = volcLavaMat(), rnd = mulberry32(77);
+  const angs = [Math.PI - 0.55, Math.PI + 0.62, Math.PI + 1.5, Math.PI - 1.45, 0.35, -0.6];
+  angs.forEach((a0, k) => {
+    const A = [], B = [], uA = [], uB = [];
+    const ph = rnd() * 6;
+    for (let d = V.Rrim - 6; d < V.Rb + 60; d += 7) {
+      const a = a0 + 0.22 * Math.sin(d * 0.018 + ph) + 0.08 * Math.sin(d * 0.05 + ph * 2);
+      const x = V.c.x + Math.sin(a) * d, z = V.c.z + Math.cos(a) * d;
+      const w = lerp(9, 30, smooth01((d - V.Rrim) / (V.Rb - V.Rrim))) * (k % 2 ? 0.8 : 1);
+      const px = Math.cos(a), pz = -Math.sin(a);
+      const xa = x + px * w / 2, za = z + pz * w / 2, xb = x - px * w / 2, zb = z - pz * w / 2;
+      A.push(new THREE.Vector3(xa, volcGroundY(xa, za) + 0.7, za)); B.push(new THREE.Vector3(xb, volcGroundY(xb, zb) + 0.7, zb));
+      uA.push([0, 0]); uB.push([1, 0]);
+    }
+    const m = new THREE.Mesh(stripGeo(A, B, uA, uB), mat); m.material.side = THREE.DoubleSide; parent.add(m);
+  });
+  // poças de lava no pé do vulcão
+  for (let i = 0; i < 7; i++) {
+    const a = Math.PI + (rnd() - 0.5) * 2.6, d = V.Rb + 40 + rnd() * 160, x = V.c.x + Math.sin(a) * d, z = V.c.z + Math.cos(a) * d;
+    if (Math.abs(x) < 30 && z < 30) continue;
+    const r = 12 + rnd() * 22, m = new THREE.Mesh(new THREE.CircleGeometry(r, 28), mat);
+    m.rotation.x = -Math.PI / 2; m.position.set(x, volcGroundY(x, z) + 0.6, z); parent.add(m);
+  }
+}
+// cratera: lago de lava, brilho, luz, chafariz, fumaça e bombas de lava
+function volcCrater(parent) {
+  const V = VOLC, g = new THREE.Group(); g.position.set(V.c.x, 0, V.c.z); parent.add(g); V.g = g;
+  const lake = new THREE.Mesh(new THREE.CircleGeometry(V.RL + 8, 72), volcLavaMat());
+  lake.rotation.x = -Math.PI / 2; lake.position.y = V.yL; g.add(lake);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: mrGlowTex(), color: 0xff6a1a, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0.5, toneMapped: false }));
+  glow.position.y = V.yL + 60; glow.scale.set(V.RL * 9, V.RL * 6, 1); g.add(glow);
+  const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: mrGlowTex(), color: 0xffe2a0, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, toneMapped: false }));
+  flash.position.y = V.yL + 30; flash.scale.set(V.RL * 9, V.RL * 9, 1); g.add(flash);
+  const light = new THREE.PointLight(0xff6a20, 3.2, 2600, 1.1); light.position.y = V.yL + 26; g.add(light);
+  // partículas (no mundo, não no grupo)
+  const fount = new PointFX(LOW_END ? 380 : 650, mrGlowTex(), true); fount.floor = V.yL - 1; fount.killFloor = true;
+  const plume = new PointFX(LOW_END ? 90 : 150, TEX.puff, false);
+  const splash = new PointFX(LOW_END ? 220 : 360, mrGlowTex(), true); splash.floor = -50; splash.killFloor = true;
+  const trail = new PointFX(LOW_END ? 120 : 200, TEX.puff, false);
+  for (const P of [fount, plume, splash, trail]) { P.points.frustumCulled = false; parent.add(P.points); }
+  // bombas de lava: pedras em brasa voando para fora da cratera
+  const bmat = mrMat('lavabomb', () => new THREE.MeshStandardMaterial({ color: 0x2a1008, emissive: 0xff4a10, emissiveIntensity: 1.7, roughness: 0.9, flatShading: true }));
+  const bombs = [];
+  for (let i = 0; i < (LOW_END ? 7 : 11); i++) {
+    const m = new THREE.Mesh(rockGeo(rr(2.2, 4.2), 700 + i), bmat); m.visible = false; parent.add(m);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: mrGlowTex(), color: 0xff7a2a, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0.85, toneMapped: false }));
+    s.scale.set(16, 16, 1); m.add(s);
+    bombs.push({ m, p: new THREE.Vector3(), v: new THREE.Vector3(), on: false, wait: rr(0, 2.5), track: i % 2 === 1 });
+  }
+  Object.assign(V, { lake, glow, flash, light, fount, plume, splash, trail, bombs, fAcc: 0, pAcc: 0 });
+  for (let i = 0; i < 120; i++) { V.pAcc += 0.2 * (LOW_END ? 5 : 8); while (V.pAcc > 1) { V.pAcc -= 1; volcPuff(); } plume.update(0.2); }
+}
+// joga uma bomba: da cratera para as encostas, ou caindo do céu perto da pista na frente do carro
+function volcLaunch(B) {
+  const V = VOLC, car = GAME.car, run = GAME.run, TP = GAME.info && GAME.info.tp;
+  B.on = true; B.m.visible = true; B.t = 0;
+  const cp = car ? car.body.position : null;
+  if (B.track && cp && TP && run && !run.takeoff && cp.z > TP.zStart + 250 && cp.z < -40) {
+    // cai perto da pista, uns 120 a 220 m na frente do carro, vindo do lado do vulcão
+    const zt = Math.min(-20, cp.z + rr(120, 220)), side = Math.random() < 0.5 ? -1 : 1, xt = side * rr(14, 46);
+    const yt = volcGroundY(xt, zt), T = rr(2.4, 3.0);
+    B.p.set(xt + side * rr(10, 40), yt + rr(150, 190), zt + rr(120, 170));
+    B.v.set((xt - B.p.x) / T, (yt - B.p.y) / T + 0.5 * GRAV * T, (zt - B.p.z) / T);
+  } else {
+    const a = rr(0, TAU), sp = rr(14, 36);
+    B.p.set(V.c.x + Math.cos(a) * rr(0, 10), V.yL + 6, V.c.z + Math.sin(a) * rr(0, 10));
+    B.v.set(Math.cos(a) * sp, rr(55, 82), Math.sin(a) * sp);
+  }
+}
+function volcBurst(p, n, k) {
+  const S = VOLC.splash;
+  for (let i = 0; i < n; i++) {
+    const a = rr(0, TAU), h = rr(0.3, 1);
+    S.spawn(p.x, p.y + 0.3, p.z, Math.cos(a) * rr(2, 9) * k, rr(5, 15) * k * h, Math.sin(a) * rr(2, 9) * k, rr(0.7, 1.5), rr(1.6, 3.2) * k, 0.4, 1, rr(0.45, 0.8), 0.12, 1, GRAV, 0.1);
+  }
+}
+function volcPuff() {
+  const V = VOLC, low = Math.random() < 0.35, c = low ? [0.85, 0.45, 0.26] : [0.52, 0.47, 0.45];
+  V.plume.spawn(V.c.x + rr(-22, 22), V.yL + rr(16, 30), V.c.z + rr(-22, 22), rr(1, 6), rr(18, 26), rr(-2, 2), low ? rr(5, 8) : rr(20, 28), low ? 50 : 70, low ? 120 : 300, c[0], c[1], c[2], low ? 0.7 : 0.72, -0.2, 0.012);
+}
+// peça caindo na lava: respingo pequeno
+function volcPlop(p) { volcBurst(_v4.set(p.x, VOLC.yL, p.z), 7, 0.55); }
+// efeitos por quadro: lava, chafariz, fumaça, bombas, luz e erupção final
+function volcanoFrame(dt) {
+  const V = VOLC, car = GAME.car;
+  if (!V.g) return;
+  V.t += dt;
+  volcLavaMat().uniforms.uT.value = V.t;
+  const E = V.erupt = Math.max(0, V.erupt - dt * 0.5);
+  // chafariz de lava (mais forte na erupção)
+  V.fAcc += dt * (LOW_END ? 70 : 120) * (1 + E * 5);
+  while (V.fAcc > 1) {
+    V.fAcc -= 1;
+    const a = rr(0, TAU), r = rr(0, 14), h = rr(0.7, 1) * (1 + E * 0.8);
+    V.fount.spawn(V.c.x + Math.cos(a) * r, V.yL + 1, V.c.z + Math.sin(a) * r, Math.cos(a) * rr(3, 13) * (1 + E), rr(45, 78) * h, Math.sin(a) * rr(3, 13) * (1 + E),
+      rr(2.6, 4.2), rr(6, 10), rr(2, 4), 1, rr(0.55, 0.9), rr(0.12, 0.3), 0.95, GRAV, 0.04);
+  }
+  // coluna de fumaça (embaixo iluminada pela lava, em cima cinza)
+  V.pAcc += dt * (LOW_END ? 5 : 8) * (1 + E * 2);
+  while (V.pAcc > 1) { V.pAcc -= 1; volcPuff(); }
+  const us = FX.spark.mat.uniforms.uScale.value;
+  for (const P of [V.fount, V.plume, V.splash, V.trail]) { P.mat.uniforms.uScale.value = us; P.update(dt); }
+  // bombas
+  for (const B of V.bombs) {
+    if (!B.on) { B.wait -= dt * (1 + E * 3); if (B.wait <= 0) volcLaunch(B); continue; }
+    B.v.y -= GRAV * dt; B.p.addScaledVector(B.v, dt); B.t += dt;
+    B.m.position.copy(B.p); B.m.rotation.x += dt * 2.1; B.m.rotation.z += dt * 1.3;
+    if ((B.t > 0.4 && B.p.y < volcGroundY(B.p.x, B.p.z)) || B.t > 9) {
+      B.on = false; B.m.visible = false; B.wait = rr(0.4, 2.2);
+      const d = Math.hypot(B.p.x - V.c.x, B.p.z - V.c.z);
+      volcBurst(_v4.set(B.p.x, d < V.RL ? V.yL : volcGroundY(B.p.x, B.p.z), B.p.z), 18, 1.2);
+      if (car && car.body.position.distanceTo(B.p) < 160) { AUDIO.crash(0.5); GAME.cam.shake = Math.min(1, GAME.cam.shake + 0.12); }
+    } else if (Math.random() < dt * 8) V.trail.spawn(B.p.x, B.p.y, B.p.z, 0, 1, 0, 2.2, 6, 16, 0.3, 0.26, 0.25, 0.45, -0.2, 0.3);
+  }
+  // luz e clarão
+  V.light.intensity = 3.2 * (0.85 + 0.15 * Math.sin(V.t * 7.3) * Math.sin(V.t * 3.1)) * (1 + E * 1.5);
+  V.flash.material.opacity = Math.min(0.6, E * 0.32);
+  V.glow.material.opacity = 0.62 + 0.2 * E;
+  // ronco do vulcão (mais alto perto dele)
+  if (car) { const r = car.root.position.distanceTo(_v4.set(V.c.x, V.yL, V.c.z)); AUDIO.rumble(clamp(1.15 - r / 1400, 0.12, 1) * (1 + E * 0.6)); }
+}
+// largada: pico rochoso com mirante, placa e luzes de aviso
+function volcStation(parent, TP, fx) {
+  const d0 = TP.decks[0], zs = d0.Z[0], ys = d0.Y[0], W = TP.def.W;
+  const dark = mrMat('dark', () => new THREE.MeshStandardMaterial({ color: 0x2a2f38, roughness: 0.5, metalness: 0.6 }));
+  const rockM = mrMat('vstation', () => new THREE.MeshStandardMaterial({ color: 0x4a3a33, roughness: 1, flatShading: true }));
+  const rock = new THREE.Mesh(rockGeo(30, 31, 2), rockM); rock.position.set(0, ys - 36, zs - 6); rock.castShadow = true; rock.receiveShadow = true; parent.add(rock);
+  const hut = new THREE.Mesh(new THREE.BoxGeometry(8, 4.4, 6), mrMat('vhut', () => new THREE.MeshStandardMaterial({ color: 0xd9a640, roughness: 0.6 }))); hut.position.set(-W / 2 - 7, ys + 0.6, zs + 8); hut.castShadow = true; parent.add(hut);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(9, 0.6, 7), dark); roof.position.set(-W / 2 - 7, ys + 3.1, zs + 8); parent.add(roof);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(7.5, 2), new THREE.MeshBasicMaterial({ map: mrSignTex('PERIGO! LAVA', true, '#ffc21a', '#14171c'), toneMapped: false, side: THREE.DoubleSide }));
+  sign.position.set(W / 2 + 5, ys + 3.4, zs + 10); sign.rotation.y = Math.PI * 0.85; parent.add(sign);
+  for (const sx of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.4, 0.3), dark); p.position.set(W / 2 + 5 + sx * 3.2, ys + 1.6, zs + 10); parent.add(p); }
+  for (const [x, z] of [[-W / 2 - 2.5, zs + 3], [W / 2 + 2.5, zs + 3], [-W / 2 - 11, zs + 8]]) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 5, 8), dark); pole.position.set(x, ys + 2.5, z); parent.add(pole);
+    const bl = new THREE.Sprite(new THREE.SpriteMaterial({ map: mrGlowTex(), color: 0xff7a1a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    bl.position.set(x, ys + 5.3, z); bl.scale.set(3.5, 3.5, 1); parent.add(bl); fx.blink.push({ s: bl, f: 1.3 });
+  }
+}
+// pilares da pista até o chão
+function volcPillars(parent, TP) {
+  const mats = [], W = TP.def.W;
+  for (const dk of TP.decks) {
+    for (let s = dk.S[0] + 10; s < dk.S[dk.n] - 6; s += 36) {
+      let i = 0; while (i < dk.n && dk.S[i] < s) i++;
+      const z = dk.Z[i], top = dk.Y[i] - 1.6, yb = Math.min(volcGroundY(-W / 2 + 1.2, z), volcGroundY(W / 2 - 1.2, z)) - 1;
+      const h = top - yb;
+      if (h < 2 || h > 320) continue;
+      for (const sx of [-1, 1]) mats.push(new THREE.Matrix4().compose(new THREE.Vector3(sx * (W / 2 - 1.2), yb + h / 2, z), new THREE.Quaternion(), new THREE.Vector3(1.6, h, 1.6)));
+      mats.push(new THREE.Matrix4().compose(new THREE.Vector3(0, top - 0.4, z), new THREE.Quaternion(), new THREE.Vector3(W - 1, 0.8, 1.2)));
+      if (h > 30) for (let yy = yb + 24; yy < top - 8; yy += 24) mats.push(new THREE.Matrix4().compose(new THREE.Vector3(0, yy, z), new THREE.Quaternion(), new THREE.Vector3(W - 2.4, 0.6, 0.6)));
+    }
+  }
+  if (!mats.length) return;
+  const inst = new THREE.InstancedMesh(OB.geo.box, mrStyle(TP.id).under, mats.length);
+  mats.forEach((m, i) => inst.setMatrixAt(i, m));
+  inst.castShadow = true; inst.receiveShadow = true; parent.add(inst);
+}
+// trajetória da borda até a altura "yEnd" (sem foguete e com foguete)
+function mrPredictTo(spec, R, TP, yEnd) {
+  const fly = (v0, rocket) => {
+    let z = 0, y = TP.lipY + 0.6, a = TP.lipAng * 0.96, vz = v0 * Math.cos(a), vy = v0 * Math.sin(a), t = 0, air = rocket ? ROCKET.airFuel : 0;
+    const k = 0.42 / spec.mass, h = 1 / 120, path = [];
+    while ((y > yEnd || vy > 0) && t < 30) {
+      const sp = Math.hypot(vz, vy);
+      let az = -k * sp * vz, ay = -GRAV - k * sp * vy;
+      if (air > 0) { az += 3.2 * vz / sp; ay += 3.2 * vy / sp; air -= h; }
+      vz += az * h; vy += ay * h; z += vz * h; y += vy * h; t += h;
+      path.push(z, y);
+    }
+    return { D: z, T: t, path };
+  };
+  const vN = (spec.vmax + R.turbo) * 0.99;
+  const n = fly(vN, false), r = fly(vN + ROCKET.boost, true);
+  const yOn = (P, zz) => { const p = P.path; if (zz <= 0) return TP.lipY; for (let i = 0; i < p.length; i += 2) if (p[i] >= zz) return p[i + 1]; return yEnd; };
+  return { H: TP.lipY, D: n.D, T: n.T, DR: r.D, TR: r.T, yAt: (zz) => yOn(n, zz), yAtR: (zz) => yOn(r, zz) };
+}
+/* ---------- monta a Mega Rampa do Vulcão ---------- */
+function mrBuildVolcano(root, carIdx) {
+  const R = MEGA_RAMPS.find(m => m.id === 'volcano'), spec = CAR_SPECS[carIdx], TP = mrProfile('volcano'), V = VOLC;
+  // a cratera fica onde os saltos (com e sem foguete) caem na lava
+  V.yL = 200;
+  const pred = mrPredictTo(spec, R, TP, V.yL);
+  const zN = pred.D, zR = Math.max(pred.DR, zN + 20);
+  V.c.set(0, 0, (zN + zR) / 2 + 4);
+  V.RL = clamp((zR - zN) / 2 + 30, 62, 100);
+  V.Rrim = V.RL + 30;
+  // a borda de perto fica abaixo da trajetória mais baixa (o carro passa raspando por cima e cai dentro)
+  V.Hr = clamp(pred.yAt(V.c.z - V.Rrim) - 16, V.yL + 30, V.yL + 150);
+  V.Rb = V.Rrim + V.Hr / Math.tan(22 * DEG);
+  V.Hfar = 340;
+  V.mz = TP.zStart - 70; V.mH = TP.top - 30; V.mR = 950;
+  V.trackY = (z) => TP.yAtZ(z);
+  V.erupt = 0; V.t = 0; V.bombT = 0;
+  mrTrackPhysics(TP);
+  mrTrackVisual(root, TP);
+  mrGantries(root, TP, 'VULCÃO', '#3a1208', '#ffb347', 300);
+  const fx = { spin: [], blink: [] };
+  volcStation(root, TP, fx);
+  volcTerrain(root, TP.zStart - 1100, V.c.z + V.Rb + 1100);
+  volcRivers(root);
+  volcCrater(root);
+  volcPillars(root, TP);
+  const sRoll = mrAtS(TP, 140);
+  return { def: { name: R.name, full: 1, items: [] }, spec, pred, Lr: -TP.zStart, zStart: TP.zStart, zBase: -40, D: zN, DR: zR, Jt: V.c.z, wallZ: V.c.z + V.Rb,
+    ramp: R, rampIdx: -1, geo: { H: TP.lipY, lip: TP.lipAng / DEG }, rampFx: { spin: fx.spin, spring: null }, pads: null, padZ0: sRoll.z,
+    mega: true, mr: 'volcano', megaP: TP, tp: TP, startY: TP.top, startZ: TP.zStart + 4.5, loop: null, land: null, fx, volc: V };
+}
+// física do vulcão: destroços somem na lava; no ar o carro é guiado de leve para dentro da cratera
+function mrVolcPhysics(car, run, h) {
+  const V = VOLC;
+  if ((V.cull = (V.cull || 0) + 1) % 8 === 0) {
+    for (const o of PHY.dyn) {
+      if (!o.alive || !o.debris) continue;
+      const q = o.body.position, d = Math.hypot(q.x - V.c.x, q.z - V.c.z);
+      if (d < V.RL + 4 ? q.y < V.yL - 0.4 : q.y < volcGroundY(q.x, q.z) - 1.2) { if (d < V.RL + 4) volcPlop(q); removeDyn(o); }
+    }
+  }
+  if (!run.takeoff || car.lavaM || car.lavaGone || GAME.state !== 'run') return;
+  const b = car.body, p = b.position, v = b.velocity, m = car.spec.mass;
+  // onde cai na lava se seguir assim (sem arrasto): corrige o erro aos poucos até lá
+  const dy = p.y - V.yL, tH = (v.y + Math.sqrt(Math.max(0, v.y * v.y + 2 * GRAV * Math.max(0, dy)))) / GRAV;
+  if (tH > 0.15) {
+    const ex = p.x + v.x * tH - V.c.x, ez = p.z + v.z * tH - V.c.z, dead = V.RL * 0.25;
+    const fx = Math.sign(ex) * Math.max(0, Math.abs(ex) - dead), fz = Math.sign(ez) * Math.max(0, Math.abs(ez) - dead);
+    const k = 1.7 / Math.max(1, tH * tH);
+    b.force.x -= clamp(fx * k, -9, 9) * m; b.force.z -= clamp(fz * k, -9, 9) * m;
+  }
+  // caiu na lava (ou bateu no vulcão por fora: afunda ali mesmo)
+  const d = Math.hypot(p.x - V.c.x, p.z - V.c.z);
+  if (d < V.RL + 3 && p.y - 0.3 < V.yL) volcEnter(car, run, V.yL);
+  else if (d >= V.RL + 3 && p.y < volcGroundY(p.x, p.z) + 0.3) volcEnter(car, run, volcGroundY(p.x, p.z));
+}
+function volcEnter(car, run, yL) {
+  car.lavaStart(yL);
+  run.lavaCap = true; run.landed = true; run.landT = run.t;
+  run.dist = Math.max(0, car.body.position.z - run.lipZ);
+  run.tgt += 500; popPoints(500);
+  callout('LAVA!', 's2'); AUDIO.splash(1); AUDIO.hiss(1); vibrate(80);
+  volcBurst(car.body.position, LOW_END ? 50 : 80, 1.5);
+  GAME.cam.mode = 'lava'; GAME.cam.t = 0; GAME.cam.lavaA = null; GAME.cam.shake = Math.min(1.2, GAME.cam.shake + 0.5);
+  $('air').hidden = true;
+}
+function onCarLava(ev) {
+  const run = GAME.run;
+  if (!run || (GAME.state !== 'run' && GAME.state !== 'ending')) return;
+  if (ev === 'melt') callout('DERRETENDO!', 's3');
+  else if (ev === 'erupt') { callout('ERUPÇÃO!', 's2'); AUDIO.bigBoom(); vibrate(160); GAME.cam.shake = Math.min(1.6, GAME.cam.shake + 1.2); run.tgt += 1000; popPoints(1000); }
+  else if (ev === 'gone') { callout('TCHIBUM!', 's3'); AUDIO.splash(1); run.lavaEnd = true; }
+}
+// câmera na lava: gira devagar em volta do carro afundando; na erupção abre para ver o vulcão
+function mrLavaCam(c, dt, P, car, portrait) {
+  const M = car.lavaM, V = VOLC;
+  if (M && M.phase === 'sink') {
+    if (c.lavaA == null) c.lavaA = Math.atan2(c.pos.x - P.x, c.pos.z - P.z);
+    c.lavaA += dt * 0.3;
+    const R = 10 * (car.spec.L / 4.5) * (portrait ? 1.45 : 1);
+    _cp.set(P.x + Math.sin(c.lavaA) * R, M.yL + 4.4, P.z + Math.cos(c.lavaA) * R);
+    _cp.y = Math.max(_cp.y, volcGroundY(_cp.x, _cp.z) + 2.5);
+    c.pos.lerp(_cp, 1 - Math.exp(-dt * 2.4));
+    c.look.lerp(_cl.set(P.x, M.yL + 0.5, P.z), 1 - Math.exp(-dt * 5));
+  } else {
+    if (c.lavaA == null) c.lavaA = Math.atan2(c.pos.x - V.c.x, c.pos.z - V.c.z);
+    c.lavaA += dt * 0.1;
+    const R = 50 * (portrait ? 1.3 : 1);
+    _cp.set(V.c.x + Math.sin(c.lavaA) * R, V.yL + 20, V.c.z + Math.cos(c.lavaA) * R);
+    _cp.y = Math.max(_cp.y, volcGroundY(_cp.x, _cp.z) + 3);
+    c.pos.lerp(_cp, 1 - Math.exp(-dt * 1.5));
+    if (car.lavaGone) _cl.set(V.c.x, V.yL + 22, V.c.z); else _cl.copy(P);
+    c.look.lerp(_cl, 1 - Math.exp(-dt * 4));
+  }
+}
+// o carro na lava: freia, afunda devagar, derrete e no fim o vulcão cospe o que sobrou
+Object.assign(Car.prototype, {
+  lavaStart(yL) {
+    const b = this.body, p = b.position, v = b.velocity;
+    const yaw = Math.atan2(v.x, v.z) || 0;
+    this.lavaM = { t: 0, T: 5.6, yL, u: 0, phase: 'sink', te: 0, yaw, dyaw: rr(-0.25, 0.25),
+      p0: new THREE.Vector3(p.x, p.y, p.z), v0: new THREE.Vector3(v.x, Math.min(0, v.y), v.z), pos: new THREE.Vector3(p.x, p.y, p.z), prev: new THREE.Vector3(p.x, p.y, p.z),
+      q0: new THREE.Quaternion(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w), vE: new THREE.Vector3(), spin: new THREE.Vector3(rr(-1, 1), rr(-0.4, 0.4), rr(-1, 1)).normalize(),
+      acc: 0, accG: 0, accP: 0, wheel: 0, said: {} };
+    b.collisionFilterMask = 0;
+    this.grounded = 0;
+    // a pintura vai escurecendo (queimada) e brilhando de quente
+    this.lavaMats = [];
+    this.vis.traverse(o => { if (o.isMesh && o.material === CARMAT.paint) { o.material = CARMAT.paint.clone(); this.lavaMats.push(o.material); } });
+  },
+  lavaAdvance(h) {
+    const M = this.lavaM, b = this.body;
+    M.t += h;
+    if (M.phase === 'sink') {
+      const u = M.u = Math.min(1, M.t / M.T);
+      const kv = Math.exp(-M.t * 2.6);
+      M.pos.x += M.v0.x * kv * h; M.pos.z += M.v0.z * kv * h;
+      const yT = M.yL + 0.3 - 1.45 * Math.pow(u, 1.3) + 0.07 * Math.sin(M.t * 3.1);
+      const ke = smooth01(M.t / 0.35);
+      M.pos.y = lerp(M.p0.y + M.v0.y * Math.min(M.t, 0.35), yT, ke);
+      _le.set(0.06 + 0.14 * u, M.yaw + M.dyaw * M.t, 0.12 * Math.sin(M.t * 1.1), 'YXZ');
+      _bq.setFromEuler(_le);
+      _bq2.copy(M.q0).slerp(_bq, smooth01(M.t / 0.7));
+      this.lavaWreck(h, u);
+      if (u >= 1) this.lavaErupt();
+    } else {
+      M.te += h;
+      M.vE.y -= GRAV * 1.2 * h;
+      M.pos.addScaledVector(M.vE, h);
+      _bq.setFromAxisAngle(M.spin, M.te * 4.2);
+      _bq2.copy(M.qE).premultiply(_bq);
+      if (M.te > 0.8 && M.pos.y < M.yL - 0.3) { this.lavaGoneFn(); return; }
+    }
+    const vx = (M.pos.x - M.prev.x) / h, vy = (M.pos.y - M.prev.y) / h, vz = (M.pos.z - M.prev.z) / h;
+    M.prev.copy(M.pos);
+    b.position.set(M.pos.x, M.pos.y, M.pos.z); b.velocity.set(vx, vy, vz);
+    this.speed = Math.hypot(vx, vy, vz);
+    b.quaternion.set(_bq2.x, _bq2.y, _bq2.z, _bq2.w);
+    b.angularVelocity.set(0, 0, 0); b.force.set(0, 0, 0); b.torque.set(0, 0, 0);
+    b.aabbNeedsUpdate = true;
+  },
+  lavaWreck(h, u) {
+    const M = this.lavaM, s = this.spec, say = (k) => { if (!M.said[k]) { M.said[k] = true; if (this.onLava) this.onLava(k); } };
+    M.acc += h;
+    const every = lerp(0.26, 0.1, u);
+    while (M.acc > every) {
+      M.acc -= every;
+      // derrete: a lataria murcha para baixo e para dentro (mais em cima com o tempo: o teto afunda)
+      const px = rr(-1, 1) * s.W / 2, pz = rr(-1, 1) * s.L / 2, py = lerp(s.yB, s.yR, Math.min(1, Math.random() * (0.45 + 0.7 * u)));
+      _v3.set(-Math.sign(px) * rr(0.2, 0.6), -rr(0.5, 1), rr(-0.2, 0.2)).normalize();
+      this.lat.impact(px, py, pz, _v3.x, _v3.y, _v3.z, 0.03 + 0.12 * u, 0.55 + 0.35 * u);
+    }
+    if (!this.fire.on) this.ignite('lava');
+    if (u > 0.05) {
+      M.accG += h;
+      if (M.accG > 0.32) { M.accG = 0; const g = this.parts.filter(q => (q.type === 'glass' || q.type === 'light') && !q.broken); if (g.length) this.breakPart(g[Math.floor(Math.random() * g.length)]); }
+    }
+    if (u > 0.16) {
+      M.accP += h;
+      if (M.accP > 0.55) { M.accP = 0; const p = this.parts.filter(q => q.attached && q.detachAt); if (p.length) { this.detachPart(p[Math.floor(Math.random() * p.length)]); say('melt'); } }
+    }
+    const att = this.wheels.filter(w => w.attached);
+    if (att.length && u > 0.24 + M.wheel * 0.12) { M.wheel++; this.detachWheel(att[Math.floor(Math.random() * att.length)]); }
+    if (u > 0.62 && !this.tank.boom) { this.tank.leak = true; this.tankBoom(); }
+    if (u > 0.86 && !this.lavaDone) { this.lavaDone = true; this.computeDamage(); }
+    // tinta queimando: escurece e fica em brasa
+    const ch = smooth01(u / 0.8), gl = ch * (0.75 + 0.25 * Math.sin(M.t * 6));
+    for (const m of this.lavaMats) { m.color.setRGB(lerp(1, 0.16, ch), lerp(1, 0.11, ch), lerp(1, 0.09, ch)); m.emissive.setRGB(0.85 * gl, 0.2 * gl, 0.02 * gl); }
+    // bolhas e respingos em volta
+    if (Math.random() < h * 9) volcBurst(_v4.set(M.pos.x + rr(-2.5, 2.5), M.yL, M.pos.z + rr(-2.5, 2.5)), 3, 0.5);
+  },
+  lavaErupt() {
+    const M = this.lavaM;
+    M.phase = 'erupt'; M.te = 0;
+    M.qE = new THREE.Quaternion(this.body.quaternion.x, this.body.quaternion.y, this.body.quaternion.z, this.body.quaternion.w);
+    M.vE.set(rr(-5, 5), rr(26, 30), rr(-5, 3));
+    VOLC.erupt = 1.8;
+    volcBurst(M.pos, LOW_END ? 70 : 120, 2.2);
+    if (this.onLava) this.onLava('erupt');
+  },
+  lavaGoneFn() {
+    const M = this.lavaM;
+    this.lavaM = null; this.lavaGone = true; this.lavaDone = true;
+    this.root.visible = false;
+    this.fire.on = false; this.tank.fuse = -1;
+    if (this.fire.glow) this.fire.glow.material.opacity = 0;
+    const b = this.body; b.velocity.set(0, 0, 0);
+    volcBurst(_v4.set(M.pos.x, M.yL, M.pos.z), LOW_END ? 40 : 70, 1.4);
+    this.computeDamage();
+    if (this.onLava) this.onLava('gone');
+  },
+});
+// céu do vulcão: anoitecendo, vermelho perto do horizonte, montanhas escuras lá longe
+function bgBuildVolcano() {
+  const S = { follow: new THREE.Group(), world: new THREE.Group() };
+  const skyMat = new THREE.ShaderMaterial({
+    uniforms: { uTop: { value: new THREE.Color(0x140716) }, uMid: { value: new THREE.Color(0x4a1418) }, uHor: { value: new THREE.Color(0xb8471f) }, uGlow: { value: new THREE.Vector3(0, 0.06, 1).normalize() } },
+    vertexShader: 'varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform vec3 uTop; uniform vec3 uMid; uniform vec3 uHor; uniform vec3 uGlow; varying vec3 vD;\n' +
+      'void main(){ vec3 d = normalize(vD); float h = d.y; vec3 c = mix(uHor, uMid, smoothstep(0.0, 0.2, h)); c = mix(c, uTop, smoothstep(0.18, 0.75, h));\n' +
+      ' if (h < 0.0) c = mix(uHor * 0.55, vec3(0.06, 0.025, 0.02), smoothstep(0.0, -0.25, h));\n' +
+      ' float g = max(dot(d, uGlow), 0.0); c += vec3(1.0, 0.42, 0.1) * (pow(g, 10.0) * 0.5 + pow(g, 3.0) * 0.08);\n' +
+      ' gl_FragColor = vec4(c, 1.0); }',
+    side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
+  });
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(3e5, 48, 24), skyMat); sky.renderOrder = -10; sky.frustumCulled = false; S.follow.add(sky);
+  S.stars = bgStars(LOW_END ? 350 : 650, 2.6e5, 77, 1.5); S.stars.material.opacity = 0.45; S.follow.add(S.stars);
+  // montanhas recortadas em volta (silhueta escura)
+  const N = 220, R = 1.2e4, pos = [], idx = [], rnd = mulberry32(515);
+  let hh = 900;
+  for (let i = 0; i <= N; i++) {
+    const a = i / N * TAU; hh = clamp(hh + (rnd() - 0.5) * 520, 300, 1900);
+    const h = hh + 380 * Math.sin(a * 5) + 220 * Math.sin(a * 11 + 1);
+    pos.push(Math.sin(a) * R, -1500, Math.cos(a) * R, Math.sin(a) * R, h, Math.cos(a) * R);
+    if (i < N) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); mg.setIndex(idx);
+  const mts = new THREE.Mesh(mg, new THREE.MeshBasicMaterial({ color: 0x1c0c0b, side: THREE.DoubleSide, depthWrite: false, depthTest: false, fog: false }));
+  mts.renderOrder = -7; mts.frustumCulled = false; S.follow.add(mts);
+  return S;
+}
+// desenho do cartão: vulcão com lava, chafariz e a rampa
+function mrVolcanoSVG(uid) {
+  return `<defs><linearGradient id="vs${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a0a1c"/><stop offset="0.6" stop-color="#6a1e18"/><stop offset="1" stop-color="#d2541f"/></linearGradient>` +
+    `<radialGradient id="vg${uid}" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffd27a" stop-opacity="0.9"/><stop offset="1" stop-color="#ff6a1a" stop-opacity="0"/></radialGradient></defs>` +
+    `<rect width="320" height="192" fill="url(#vs${uid})"/><path d="${mrStarsPath(26, 31, 320, 70)}" fill="#fff" opacity="0.6"/>` +
+    `<ellipse cx="236" cy="66" rx="62" ry="40" fill="url(#vg${uid})"/>` +
+    `<path d="M150 192L214 86Q236 78 258 86L322 192Z" fill="#3a2a26" stroke="#14171c" stroke-width="2" stroke-linejoin="round"/>` +
+    `<path d="M214 86Q236 96 258 86Q236 78 214 86Z" fill="#ff8a1a"/>` +
+    `<path d="M224 90Q218 120 206 140Q198 158 200 192" fill="none" stroke="#ff7a1a" stroke-width="5" stroke-linecap="round"/><path d="M248 90Q256 118 270 150Q278 170 276 192" fill="none" stroke="#ff7a1a" stroke-width="4" stroke-linecap="round"/>` +
+    `<path d="M224 90Q218 120 206 140Q198 158 200 192" fill="none" stroke="#ffd37a" stroke-width="1.6" stroke-linecap="round"/>` +
+    `<path d="M236 84Q230 50 222 30M236 84Q240 46 250 26M236 84Q236 54 236 22" fill="none" stroke="#ffb347" stroke-width="3" stroke-linecap="round" opacity="0.9"/>` +
+    `<circle cx="214" cy="40" r="3.4" fill="#ff7a1a"/><circle cx="262" cy="34" r="2.8" fill="#ff7a1a"/><circle cx="246" cy="18" r="2.4" fill="#ffd37a"/>` +
+    `<ellipse cx="232" cy="14" rx="34" ry="12" fill="#2a2222" opacity="0.7"/><ellipse cx="252" cy="6" rx="30" ry="10" fill="#2a2222" opacity="0.6"/>`;
+}
+
+/* ============================================================
    Mega Rampa: liga e desliga o mundo, física extra, eventos da corrida,
    câmeras, efeitos por quadro e o começo da rodada
    ============================================================ */
@@ -7989,12 +8528,13 @@ function mrWorldOn(id) {
   WORLD.sky.visible = false;
   if (WORLD.ground) WORLD.ground.visible = false;
   for (const o of WORLD.scenery || []) o.visible = false;
-  camera.near = 0.25; camera.far = id === 'earth' ? 9000 : 5000; camera.updateProjectionMatrix();
+  camera.near = 0.25; camera.far = id === 'earth' ? 9000 : id === 'volcano' ? 8000 : 5000; camera.updateProjectionMatrix();
   scene.fog.near = 1e5; scene.fog.far = 2e5;
+  if (id === 'volcano') { scene.fog.color.setHex(THEMES.volcano.fog); scene.fog.near = THEMES.volcano.fogNear; scene.fog.far = THEMES.volcano.fogFar; }
   bgUse(id);
 }
 function mrWorldOff() {
-  BHOLE.g = null;
+  BHOLE.g = null; VOLC.g = null;
   const el = $('mrFog'); if (el) el.style.opacity = '0';
   if (!WORLD.megaWorld) return;
   WORLD.megaWorld = null;
@@ -8019,7 +8559,7 @@ function mrPhysics(car, run, ctl, h, warm) {
       if (q.y < (yD > -1e3 ? yD : 0) - 25 || q.y < -60) removeDyn(o);
     }
   }
-  if (warm || car.bhM || car.bhGone) { if (info.mr === 'bh' && !warm) mrBHPhysics(car, run, h); return; }
+  if (warm || car.bhM || car.bhGone || car.lavaM || car.lavaGone) { if (!warm) { if (info.mr === 'bh') mrBHPhysics(car, run, h); else if (info.mr === 'volcano') mrVolcPhysics(car, run, h); } return; }
   // antes do salto final: batidas amassam menos e o tanque não explode (o carro chega inteiro no grande salto)
   car.midAir = false; car.crushK = info.mr === 'bh' && run.takeoff ? 0.45 : 1; car.noBoom = !run.takeoff;
   if (!run.takeoff) {
@@ -8063,6 +8603,7 @@ function mrPhysics(car, run, ctl, h, warm) {
     }
   }
   if (info.mr === 'bh') mrBHPhysics(car, run, h);
+  else if (info.mr === 'volcano') mrVolcPhysics(car, run, h);
 }
 // buraco negro: tudo que está perto perde o peso e é puxado para ele; o que encosta no horizonte some
 function mrBHPhysics(car, run, h) {
@@ -8110,7 +8651,7 @@ function mrRun(run, car, dt) {
   const info = GAME.info, TP = info.tp, p = car.body.position, E = run.mrE || (run.mrE = {});
   if (!run.started) return;
   const kmh = car.speed * 3.6;
-  if (!car.bhM && !car.bhGone) {
+  if (!car.bhM && !car.bhGone && !car.lavaM && !car.lavaGone) {
     run.vMax = Math.max(run.vMax || 0, kmh);
     if (!E.v200 && kmh > 200) { E.v200 = true; callout('200 KM/H!', 's3'); }
     if (!E.v300 && kmh > 300) { E.v300 = true; callout('300 KM/H!', 's2'); vibrate(40); }
@@ -8123,6 +8664,10 @@ function mrRun(run, car, dt) {
     if (!E.atm && EARTH.plasma > 0.25) { E.atm = true; callout('ATMOSFERA!', 's2'); }
     if (EARTH.plasma > 0.55) { E.heat = (E.heat || 0) + dt; if (E.heat > 2.2 && !E.fire && !car.fire.on) { E.fire = true; car.ignite('reentry'); } }
     if (!E.cloud && earthAlt(p.x, p.y, p.z) < EARTH.cloudH) { E.cloud = true; callout('NUVENS!', 's3'); EARTH.puffT = 1.3; }
+  } else if (info.mr === 'volcano') {
+    const wz = TP.waves[0];
+    if (!E.volc && !run.takeoff && p.z > -720) { E.volc = true; callout('VULCÃO!', 's2'); }
+    if (!E.waves && wz && p.z > wz[0] + 4 && p.z < wz[1]) { E.waves = true; callout('ONDAS!', 's3'); }
   } else {
     for (const rg of info.rings) if (!rg.done && !run.takeoff && p.z > rg.z) { rg.done = true; run.rings = (run.rings || 0) + 1; run.tgt += 200; popPoints(200); callout('ANEL!', 's3'); AUDIO.chime(run.rings % 5); }
     if (!E.hole && p.z > -260) { E.hole = true; callout('BURACO NEGRO!', 's2'); }
@@ -8206,6 +8751,7 @@ function mrFrame(dt) {
     if (fx.astro) { fx.astro.obj.position.y = fx.astro.y0 + Math.sin(now * 1.2) * 0.4; fx.astro.arm.rotation.z = -2.4 + Math.sin(now * 6) * 0.5; }
   }
   if (info.mr === 'earth') earthFrame(dt, now);
+  else if (info.mr === 'volcano') volcanoFrame(dt);
   else { mrBlackHoleUpdate(dt); mrStretch(); const car = GAME.car; if (car) { const r = car.root.position.distanceTo(BHOLE.c); AUDIO.rumble(car.bhGone ? 0.25 : clamp(1.2 - r / 500, 0.08, 1)); } }
 }
 function earthFrame(dt, now) {
@@ -8314,15 +8860,15 @@ function startMega(idx) {
   GAME.megaIdx = idx; Store.set('megaIdx', idx);
   clearLevel();
   const R = MEGA_RAMPS[idx];
-  applyTheme(R.id === 'earth' ? 'day' : 'space');
+  applyTheme(R.id === 'earth' ? 'day' : R.id === 'volcano' ? 'volcano' : 'space');
   mrWorldOn(R.id);
   GAME.levelRoot = new THREE.Group();
   scene.add(GAME.levelRoot);
-  GAME.info = R.id === 'earth' ? mrBuildEarth(GAME.levelRoot, GAME.carIdx) : mrBuildBH(GAME.levelRoot, GAME.carIdx);
+  GAME.info = R.id === 'earth' ? mrBuildEarth(GAME.levelRoot, GAME.carIdx) : R.id === 'volcano' ? mrBuildVolcano(GAME.levelRoot, GAME.carIdx) : mrBuildBH(GAME.levelRoot, GAME.carIdx);
   const car = GAME.car = new Car(GAME.carIdx, GAME.levelRoot, carPaint(GAME.carIdx));
   car.fullK = (car.spec.full || DESTROY_FULL) * (GAME.dbgFullK || WRECK_FULL) * (R.fullK || 1);
   car.place(0, GAME.info.startY + 0.02, GAME.info.startZ, 0);
-  car.onImpact = onCarImpact; car.onWall = onWallHit; car.onBH = onCarBH;
+  car.onImpact = onCarImpact; car.onWall = onWallHit; car.onBH = onCarBH; car.onLava = onCarLava;
   car.trick = null; car.onTrick = onCarTrick; car.turboQuiet = !!R.quiet;
   EARTH.plasma = 0; EARTH.puffT = 0; BHOLE.flash = 0;
   GAME.run = {
@@ -8330,7 +8876,7 @@ function startMega(idx) {
     dist: 0, still: 0, endT: 0, hits: 0, crashed: false, airShown: false, bigHits: 0, wallHit: false,
     pts: 0, shownPts: 0, dmgMax: 0, liveHits: 0, hitT: 0, pend: 0, pendT: 0, diamond: false,
     springDone: false, turboCall: false, tricks: 0, tgt: 0, tgtDone: false, tgtRing: -1,
-    mega: true, orbits: 0, rings: 0, vMax: 0, bhEnd: false, bhEndT: 0,
+    mega: true, orbits: 0, rings: 0, vMax: 0, bhEnd: false, bhEndT: 0, lavaCap: false, lavaEnd: false, lavaEndT: 0,
   };
   $('hPts').textContent = '0';
   $('hDmgMeter').classList.remove('hot', 'full');
@@ -8340,7 +8886,7 @@ function startMega(idx) {
   GAME.timeScale = 1; GAME.slowT = 0; GAME.slowCool = 0; GAME.acc = 0;
   GAME.input.rocketTap = false; GAME.input._nPrev = false;
   const c = GAME.cam;
-  c.mode = 'intro'; c.t = 0; c.shake = 0; c.heading.set(0, 0, 1); c.orbitBase = null; c.vo = 0; c.flipK = 0; c.lakeUnder = false; c.lakeA = 0; c.lakeSide = null; c.mrT = null; c.bhA = null;
+  c.mode = 'intro'; c.t = 0; c.shake = 0; c.heading.set(0, 0, 1); c.orbitBase = null; c.vo = 0; c.flipK = 0; c.lakeUnder = false; c.lakeA = 0; c.lakeSide = null; c.mrT = null; c.bhA = null; c.lavaA = null; c.airOff = null; c.bhL = null;
   const p = car.body.position;
   c.pos.set(p.x + 14, p.y + 6, p.z - 10); c.look.set(p.x, p.y, p.z);
   $('hLvlNum').textContent = 'MEGA RAMPA';
@@ -8366,7 +8912,7 @@ function mrLabels() {
 
 /* ---------- fim da rodada (Mega Rampa) ---------- */
 function mrFinish() {
-  const run = GAME.run, car = GAME.car, info = GAME.info, R = info.ramp, idx = GAME.megaIdx, bh = info.mr === 'bh';
+  const run = GAME.run, car = GAME.car, info = GAME.info, R = info.ramp, idx = GAME.megaIdx, bh = info.mr === 'bh', vol = info.mr === 'volcano';
   car.computeDamage();
   const hits = countHits();
   run.liveHits = hits;
@@ -8376,13 +8922,13 @@ function mrFinish() {
   if (!Number.isFinite(run.dist)) run.dist = 0;
   const dist = Math.round(run.dist * 10) / 10;
   const S = 0.7 * car.damagePct + 30 * Math.min(1, dist / Math.max(10, info.Jt));
-  const stars = run.diamond || car.bhDone ? 5 : S >= 93 ? 5 : S >= 76 ? 4 : S >= 56 ? 3 : S >= 32 ? 2 : 1;
+  const stars = run.diamond || car.bhDone || car.lavaDone ? 5 : S >= 93 ? 5 : S >= 76 ? 4 : S >= 56 ? 3 : S >= 32 ? 2 : 1;
   const sc = scoreOf(D, dist, hits, run.diamond, run.tgt);
   run.pts = sc.total;
   run.score = { D, dist, hits, stars, S, pts: sc.total, part: sc, diamond: run.diamond };
   run.rec = REC.add({ mg: idx, lv: -1, car: GAME.carIdx, rp: -1, pts: sc.total, dmg: D, dist, dia: run.diamond });
   $('rLevel').textContent = 'MEGA RAMPA · ' + R.name;
-  $('rTitle').textContent = car.bhDone ? 'ENGOLIDO!' : run.diamond ? 'MEGA DESTRUIÇÃO!' : ['Boa tentativa!', 'Amassou!', 'Que estrago!', 'Destruidor!', 'SUPER ESTRAGO!'][stars - 1];
+  $('rTitle').textContent = car.bhDone ? 'ENGOLIDO!' : car.lavaDone ? 'DERRETEU!' : run.diamond ? 'MEGA DESTRUIÇÃO!' : ['Boa tentativa!', 'Amassou!', 'Que estrago!', 'Destruidor!', 'SUPER ESTRAGO!'][stars - 1];
   $('rDmg').textContent = D + '%';
   $('rDistBox').firstElementChild.textContent = bh ? 'Voo' : 'Salto';
   $('rDist').textContent = Math.round(dist) + ' m';
@@ -8392,6 +8938,10 @@ function mrFinish() {
     $('rTgtBox').firstElementChild.textContent = 'Voltas';
     $('rTgt').textContent = String(run.orbits || 0);
     $('rTgtWhy').textContent = run.tgt > 0 ? fmt(run.tgt) + ' pts' : '';
+  } else if (vol) {
+    $('rTgtBox').firstElementChild.textContent = 'Lava';
+    $('rTgt').textContent = run.lavaCap ? fmt(run.tgt) : '—';
+    $('rTgtWhy').textContent = run.lavaEnd ? 'o vulcão cuspiu!' : run.lavaCap ? 'caiu na lava' : 'não chegou';
   } else {
     $('rTgtBox').firstElementChild.textContent = 'Alvo';
     $('rTgt').textContent = run.tgt > 0 ? fmt(run.tgt) : '—';
@@ -8408,7 +8958,7 @@ function mrFinish() {
   const box = $('rStars');
   box.innerHTML = '';
   for (let i = 0; i < 5; i++) { const s = document.createElement('span'); s.innerHTML = i < stars ? STAR_SVG : STAR_OFF; box.appendChild(s.firstChild); }
-  $('bNextLvl').textContent = MEGA_RAMPS[1 - idx].name + ' ›';
+  $('bNextLvl').textContent = MEGA_RAMPS[(idx + 1) % MEGA_RAMPS.length].name + ' ›';
   mrLabels();
   setState('result');
   if (run.diamond) showMega(); else revealResult();
@@ -8452,6 +9002,8 @@ const MR_ART = {
     legs: [{ path: 0, dur: 1.7, ease: 1.7 }, { fall: [[130, 89], [142, 101]], dur: 0.32 }, { path: 1, dur: 0.6 }, { jump: [[208, 113], [236, 127]], h: 15, dur: 0.95 }, { stop: [236, 127], dur: 1.83 }] },
   bh: { period: 5.6, ramp: [[[18, 26], [32, 26], [52, 32], [100, 74], [130, 94], [150, 100], [161, 96]]],
     legs: [{ path: 0, dur: 2.0, ease: 1.6 }, { spiral: [238, 86], r0: 70, turns: 2.3, dur: 2.3 }, { gone: true, dur: 1.3 }] },
+  volcano: { period: 5.6, ramp: [[[14, 34], [30, 34], [50, 42], [104, 96], [132, 112], [150, 114], [162, 108]]],
+    legs: [{ path: 0, dur: 2.0, ease: 1.6 }, { jump: [[162, 108], [236, 90]], h: 40, dur: 1.15 }, { sink: [236, 90], dur: 1.35 }, { gone: true, dur: 1.1 }] },
 };
 function mrPolySample(pts, u) {
   let L = 0; const seg = [];
@@ -8475,7 +9027,8 @@ function mrArtPose(id, T) {
       x = L.spiral[0] + Math.cos(ang) * r; y = L.spiral[1] + Math.sin(ang) * r * 0.27;
       a = ang + Math.PI / 2; sc = 1 - 0.85 * u; op = clamp((1 - u) / 0.15, 0, 1); onTrack = false;
       if (u < 0.12) { const q = u / 0.12, s0 = mrPolySample(A.ramp[0], 1); x = lerp(s0[0], x, q); y = lerp(s0[1], y, q); }
-    } else if (L.gone) { op = 0; }
+    } else if (L.sink) { x = L.sink[0]; y = L.sink[1] + 3 + 5 * u; a = 8 * Math.sin(u * 9) * (1 - u); sc = 1 - 0.35 * u; op = clamp((1 - u) / 0.35, 0, 1); onTrack = false; }
+    else if (L.gone) { op = 0; }
     break;
   }
   if (onTrack) { x += Math.sin(a) * off; y -= Math.cos(a) * off; }
@@ -8507,6 +9060,11 @@ function mrCardArt(id, paint) {
     for (const pts of A.ramp) body += `<path d="${mrRampPath(pts)}" fill="none" stroke="#14171c" stroke-width="7.5" stroke-linejoin="round" stroke-linecap="round"/><path d="${mrRampPath(pts)}" fill="none" stroke="#ff4fd8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/><path d="${mrRampPath(pts.map(p => [p[0], p[1] - 1.4]))}" fill="none" stroke="#3ee6ff" stroke-width="1" opacity="0.9"/>`;
     body += `<path d="${artCircle(14, 34, 9)}" fill="#5b5262" stroke="#14171c" stroke-width="1"/>`;
   }
+  if (id === 'volcano') {
+    body = mrVolcanoSVG(uid);
+    for (const pts of A.ramp) body += `<path d="${mrRampPath(pts)}" fill="none" stroke="#14171c" stroke-width="7.5" stroke-linejoin="round" stroke-linecap="round"/><path d="${mrRampPath(pts)}" fill="none" stroke="#ff7a1a" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>`;
+    body += `<path d="M14 34L14 42" stroke="#14171c" stroke-width="2"/><path d="M164 106Q200 60 236 88" fill="none" stroke="#fff8e7" stroke-width="1.8" stroke-dasharray="3 3.5" opacity="0.85"/>`;
+  }
   return `<svg viewBox="0 0 320 192" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${body}${car}</svg>`;
 }
 // botão do modo Mega Rampa: a Terra embaixo, o buraco negro em cima e estrelas
@@ -8515,6 +9073,8 @@ function mrModeArt() {
   return `<svg viewBox="0 0 320 192" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="sk${uid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#05020f"/><stop offset="1" stop-color="#14123a"/></linearGradient></defs>` +
     `<rect width="320" height="192" fill="url(#sk${uid})"/><ellipse cx="250" cy="40" rx="110" ry="30" fill="#7a2bd0" opacity="0.2"/>` +
     `<path d="${mrStarsPath(60, 21, 320, 192)}" fill="#fff" opacity="0.85"/>` + mrPlanetSVG(uid, 92, 300, 170) + mrHoleSVG(uid + 'h', 236, 62, 0.82) +
+    `<path d="M176 192L214 138Q227 132 240 138L278 192Z" fill="#3a2a26" stroke="#14171c" stroke-width="2"/><path d="M214 138Q227 145 240 138Q227 132 214 138Z" fill="#ff8a1a"/>` +
+    `<path d="M227 136Q221 112 215 98M227 136Q231 108 239 94" fill="none" stroke="#ffb347" stroke-width="3" stroke-linecap="round"/><path d="M219 142Q215 164 207 192" fill="none" stroke="#ff7a1a" stroke-width="3.4" stroke-linecap="round"/>` +
     `<path d="M60 128L120 100L190 70" fill="none" stroke="#14171c" stroke-width="7" stroke-linecap="round"/><path d="M60 128L120 100L190 70" fill="none" stroke="#ffc21a" stroke-width="3.6" stroke-linecap="round"/></svg>`;
 }
 
@@ -8729,7 +9289,7 @@ function setLoadMsg(t) { const el = $('loadMsg'); if (el) el.textContent = t; }
    Ao abrir e ao voltar para o app, lê version.txt. Se a versão publicada for outra, recarrega
    num endereço novo (?v=...) para não usar a cópia guardada no celular. No meio da corrida
    espera voltar para um menu. Ao publicar: aumente APP_VER aqui e o número em version.txt. */
-const APP_VER = '5.4';
+const APP_VER = '6.0';
 const UPD = { pending: null, busy: false, last: 0 };
 const UPD_MENU = ['title', 'garage', 'levels', 'records', 'ramp', 'megasel'];
 function updOn() { return /^https?:$/.test(location.protocol) && !/claude|anthropic/i.test(location.hostname); }
@@ -9079,11 +9639,13 @@ function physicsStep(h, warm) {
     GAME.input.rocketTap = false;
     if (car.fireRocket()) { run.rocket = true; GAME.cam.shake = Math.min(1, GAME.cam.shake + 0.3); vibrate(40); }
   } else if (GAME.input.rocketTap && GAME.state !== 'countdown') GAME.input.rocketTap = false;
-  if (car.loopM) car.loopWheels(h); else if (car.bhM || car.bhGone) car.bhWheels(h); else car.step(h, ctl);
+  if (car.loopM) car.loopWheels(h); else if (car.bhM || car.bhGone || car.lavaM || car.lavaGone) car.bhWheels(h); else car.step(h, ctl);
   PHY.world.internalStep(h);
   if (car.loopM) car.loopAdvance(h); // no loop o carro segue o trilho
   else if (car.bhM) car.bhAdvance(h); // no buraco negro o carro segue a espiral
+  else if (car.lavaM) car.lavaAdvance(h); // na lava o carro afunda (e depois o vulcão cospe)
   else if (car.bhGone) { car.body.position.set(BHOLE.c.x, BHOLE.c.y, BHOLE.c.z); car.body.velocity.set(0, 0, 0); }
+  else if (car.lavaGone) car.body.velocity.set(0, 0, 0);
   PHY.time += h;
   nanGuard(car);
   car.processContacts(h);
@@ -9257,7 +9819,7 @@ let _coNext = 0;
 const CALL_QUIET_BH = new Set(['FOGO!', 'VIDRO!', 'O MOTOR SAIU!', 'PNEU FURADO!', '100%!', 'CAPOTOU!', 'PEDAÇOS!']);
 function callout(text, cls) {
   const c = GAME.car;
-  if (c && (c.bhM || c.bhGone) && (CALL_QUIET_BH.has(text) || CALL_WORDS.includes(text))) return;
+  if (c && (c.bhM || c.bhGone || c.lavaM || c.lavaGone) && (CALL_QUIET_BH.has(text) || CALL_WORDS.includes(text))) return;
   const now = performance.now();
   if (_coNext - now > 1300) return;
   const wait = Math.max(0, _coNext - now);
@@ -9271,7 +9833,7 @@ function calloutNow(text, cls) {
   el.className = 'callout ' + (cls || '');
   el.textContent = text;
   let x = 50, y = 40;
-  if (car && (car.bhM || car.bhGone)) y = innerHeight > innerWidth ? 26 : 15; // na espiral do buraco negro: no alto da tela (o carro fica no meio)
+  if (car && (car.bhM || car.bhGone || car.lavaM || car.lavaGone)) y = innerHeight > innerWidth ? 26 : 15; // na espiral do buraco negro: no alto da tela (o carro fica no meio)
   else if (car) {
     _v1.copy(car.root.position).project(camera);
     if (_v1.z < 1) { x = clamp((_v1.x * 0.5 + 0.5) * 100, 18, 82); y = clamp((-_v1.y * 0.5 + 0.5) * 100 - 12, 16, 62); }
@@ -9319,7 +9881,7 @@ function liveScore(run, car, dt) {
   }
   run.pts = scoreOf(run.dmgMax, run.dist, run.liveHits, run.diamond, run.tgt).total;
   run.pendT -= dt;
-  if (run.pend >= 1 && run.pendT <= 0) { popPoints(run.pend); run.pend = 0; run.pendT = car.bhM ? 1.1 : 0.45; }
+  if (run.pend >= 1 && run.pendT <= 0) { popPoints(run.pend); run.pend = 0; run.pendT = car.bhM || car.lavaM ? 1.1 : 0.45; }
 }
 function popPoints(n, gem) {
   const car = GAME.car;
@@ -9327,7 +9889,7 @@ function popPoints(n, gem) {
   el.className = 'pop-pts' + (gem ? ' big' : '');
   el.innerHTML = (gem ? '<span class="gem-ico">' + GEM_SVG + '</span> ' : '') + '+' + fmt(n);
   let x = 50, y = 46;
-  if (car && (car.bhM || car.bhGone)) { x = gem ? 50 : 13 + rr(-2, 2); y = gem ? 30 : 54 + rr(-4, 4); }
+  if (car && (car.bhM || car.bhGone || car.lavaM || car.lavaGone)) { x = gem ? 50 : 13 + rr(-2, 2); y = gem ? 30 : 54 + rr(-4, 4); }
   else if (car) {
     _v1.copy(car.root.position).project(camera);
     if (_v1.z < 1) { x = clamp((_v1.x * 0.5 + 0.5) * 100 + rr(-7, 7), 14, 86); y = clamp((-_v1.y * 0.5 + 0.5) * 100 + 4, 24, 72); }
@@ -9439,7 +10001,7 @@ function updateRun(dt, sdt) {
     const rh = Number(Store.get('rollHint', 0)) || 0;
     if (rh < 3 && !car.trick && info.mr !== 'bh') { Store.set('rollHint', rh + 1); const tp = $('tip'); tp.textContent = 'No ar: segure a seta para girar o carro!'; tp.style.opacity = '1'; run.tipT = run.t + 2.8; }
   }
-  if (run.takeoff && !run.landed && !car.bhM && !car.bhGone) {
+  if (run.takeoff && !run.landed && !car.bhM && !car.bhGone && !car.lavaM && !car.lavaGone) {
     if (Number.isFinite(p.z)) run.dist = Math.max(0, p.z - run.lipZ);
     const vy = car.body.velocity.y;
     const restingOnStuff = car.touching && car.speed < 3 && Math.abs(vy) < 1 && run.t - run.takeoffT > 0.5;
@@ -9463,10 +10025,13 @@ function updateRun(dt, sdt) {
     const timeout = run.takeoff ? run.t - run.takeoffT > 22 : run.t > (info.mr ? 150 : 40);
     // buraco negro: a rodada acaba quando ele engole o carro
     const bhOver = info.mr === 'bh' ? (run.bhEnd && (run.bhEndT = (run.bhEndT || 0) + sdt) > 1.1) || run.t > 160 : false;
-    const normalOver = info.mr !== 'bh' && (run.still > (run.takeoff ? 1.4 : 2.6) || run.slow > 2.6 || timeout || p.y < -25 || Math.abs(p.x) > 140);
-    if (!hold && (bhOver || normalOver)) {
+    // vulcão: acaba quando o que sobrou do carro cai de volta na lava
+    const lavaOver = info.mr === 'volcano' && run.lavaCap ? (run.lavaEnd && (run.lavaEndT = (run.lavaEndT || 0) + sdt) > 1.3) || run.t > 170 : false;
+    const scripted = info.mr === 'bh' || run.lavaCap;
+    const normalOver = !scripted && (run.still > (run.takeoff ? 1.4 : 2.6) || run.slow > 2.6 || timeout || p.y < -25 || Math.abs(p.x) > 140);
+    if (!hold && (bhOver || lavaOver || normalOver)) {
       setState('ending'); run.endT = 0;
-      GAME.cam.mode = run.shark ? 'lake' : info.mr === 'bh' ? 'bh' : 'orbit'; GAME.cam.orbitBase = Math.atan2(GAME.cam.pos.x - p.x, GAME.cam.pos.z - p.z); GAME.cam.t = 0;
+      GAME.cam.mode = run.shark ? 'lake' : info.mr === 'bh' ? 'bh' : run.lavaCap ? 'lava' : 'orbit'; GAME.cam.orbitBase = Math.atan2(GAME.cam.pos.x - p.x, GAME.cam.pos.z - p.z); GAME.cam.t = 0;
       $('air').hidden = true;
       AUDIO.stopLoops();
       if (WORLD.crowd) WORLD.crowd.excite = 1;
@@ -9596,7 +10161,7 @@ function recordBadge(ok) {
 // tela cheia do prêmio; tocar em qualquer lugar (ou PEGAR!) guarda o diamante
 function showMega() {
   const m = $('mega'), n = REC.data.dia;
-  $('megaSub').textContent = GAME.car && GAME.car.sharkDone ? 'O tubarão destruiu 100% do carro!' : GAME.car && GAME.car.bhDone ? 'O buraco negro engoliu o carro!' : 'Você destruiu 100% do carro!';
+  $('megaSub').textContent = GAME.car && GAME.car.sharkDone ? 'O tubarão destruiu 100% do carro!' : GAME.car && GAME.car.bhDone ? 'O buraco negro engoliu o carro!' : GAME.car && GAME.car.lavaDone ? 'A lava derreteu o carro!' : 'Você destruiu 100% do carro!';
   $('megaCount').innerHTML = n <= 1 ? 'Seu primeiro Mega Diamante!' : 'Agora você tem <b>' + fmt(n) + '</b> Mega Diamantes!';
   const sp = $('megaSpk');
   sp.innerHTML = '';
@@ -9654,7 +10219,7 @@ function renderRecords() {
   let hm = '<div class="rec-row head"><span></span><span>Rampa</span><span class="v">Pontos</span><span class="v">Dest.</span><span class="v">Salto</span><span></span></div>';
   MEGA_RAMPS.forEach((M, i) => {
     const x = d.mega[i], has = x.pts > 0;
-    hm += `<div class="rec-row"><span class="n">${i ? 'BN' : 'T'}</span><span class="nm">${M.name}${has && x.car >= 0 ? '<small>com ' + CAR_SPECS[x.car].name + '</small>' : ''}</span>` +
+    hm += `<div class="rec-row"><span class="n">${M.abbr || i + 1}</span><span class="nm">${M.name}${has && x.car >= 0 ? '<small>com ' + CAR_SPECS[x.car].name + '</small>' : ''}</span>` +
       `<span class="v p">${has ? fmt(x.pts) : '—'}</span><span class="v">${has ? x.dmg + '%' : '—'}</span><span class="v">${has ? fmt(x.dist) + ' m' : '—'}</span><span class="gi">${x.dia ? GEM_SVG : ''}</span></div>`;
   });
   $('recMega').innerHTML = hm;
@@ -9683,7 +10248,9 @@ function updateCamera(dt) {
   if (run && run.shark && c.mode !== 'lake') c.mode = 'lake';
   const mrI = GAME.info && GAME.info.mr;
   if (mrI === 'bh' && (car.bhM || car.bhGone) && c.mode !== 'bh') c.mode = 'bh';
+  if (mrI === 'volcano' && (car.lavaM || car.lavaGone) && c.mode !== 'lava') c.mode = 'lava';
   if (c.mode === 'bh') { mrBHCam(c, dt, P, car, portrait); fov = portrait ? 76 : 62; }
+  else if (c.mode === 'lava') { mrLavaCam(c, dt, P, car, portrait); fov = portrait ? 74 : 60; }
   else if (c.mode === 'intro' && mrI) { mrIntroCam(c, dt, P, scale, portrait); if (GAME.state === 'run') c.mode = 'chase'; }
   else if (c.mode === 'chase' && mrI && run && !run.takeoff) {
     mrDeckCam(c, dt, P, car, scale, portrait);
@@ -9790,9 +10357,9 @@ function updateHUD() {
   const lbl = deck ? 'RAMPA' : 'SALTO';
   if (run._lbl !== lbl) { run._lbl = lbl; $('hDistLbl').textContent = lbl; }
   $('hDist').textContent = (deck ? Math.max(0, Math.round(GAME.info.megaP.remainAtZ(car.body.position.z))) : Math.round(run.dist)) + ' m';
-  const air = run.takeoff && !run.landed && GAME.state === 'run' && !run.bhCap;
+  const air = run.takeoff && !run.landed && GAME.state === 'run' && !run.bhCap && !run.lavaCap;
   $('air').hidden = !air;
-  const cine = !!run.bhCap;
+  const cine = !!(run.bhCap || run.lavaCap);
   if (run._cine !== cine) { run._cine = cine; $('hud').classList.toggle('cine', cine); }
   const rollUI = air && !(car.trick && car.trick.state === 'on');
   if (run._rollUI !== rollUI) { run._rollUI = rollUI; $('hud').classList.toggle('inair', rollUI); }
@@ -9903,7 +10470,7 @@ function bindUI() {
   on('bChoose', () => { GAME.carIdx = GAME.garageIdx; Store.set('car', GAME.carIdx); setState(GAME.mode === 'mega' ? 'megasel' : 'levels'); });
   on('bLBack', () => setState('garage'));
   on('bRetry', () => { if (GAME.mode === 'mega') startMega(GAME.megaIdx); else openRamp(GAME.levelIdx); });
-  on('bNextLvl', () => { if (GAME.mode === 'mega') startMega(1 - GAME.megaIdx); else openRamp(GAME.levelIdx >= LEVELS.length - 1 ? GAME.levelIdx : GAME.levelIdx + 1); });
+  on('bNextLvl', () => { if (GAME.mode === 'mega') startMega((GAME.megaIdx + 1) % MEGA_RAMPS.length); else openRamp(GAME.levelIdx >= LEVELS.length - 1 ? GAME.levelIdx : GAME.levelIdx + 1); });
   on('bRpBack', () => setState('levels'));
   on('bRampGo', () => startLevel(GAME.pendingLevel));
   on('bRCar', () => { clearLevel(); setState('garage'); });
@@ -10423,7 +10990,7 @@ function onResize() {
 window.__RR = {
   GAME, LEVELS, CAR_SPECS, WRECK_T, PHY, TRAPS, startLevel, setState, REC, GEM3D, SCORE, scoreOf, countHits, showMega, closeMega, renderRecords, clearLevel,
   RAMPS, ART, openRamp, pickRamp, artSVG, artPose, predictJump, rampProfile, FX, LAKE, SHARK,
-  MEGA_RAMPS, startMega, mrProfile, BG, BHOLE, EARTH, buildMegaGrid, pickMega, renderWorld: () => renderWorld(),
+  MEGA_RAMPS, startMega, mrProfile, BG, BHOLE, EARTH, VOLC, volcGroundY, buildMegaGrid, pickMega, renderWorld: () => renderWorld(),
   camera: () => camera, scene: () => scene, buildWheelMesh, buildCarVisual, CARMAT,
   render() { renderWorld(); },
   hud() { if (GAME.run) updateHUD(); },
